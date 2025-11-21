@@ -19,8 +19,11 @@ public class PlayerController_Arduino : MonoBehaviour
     public float portRetryInterval = 2f;
 
     [Header("Speed Display Scaling")]
-    public float speedScale = 60f; // Scale factor to “fake” speed for OLED
+    public float speedScale = 60f;       // Scale factor to “fake” speed for OLED
     public float speedSmoothFactor = 5f; // Smooth displayed speed
+
+    [Header("Collectibles")]
+    public int collectibles = 0;         // Counter for collectibles
 
     private Rigidbody rb;
     private SerialPort port;
@@ -29,7 +32,6 @@ public class PlayerController_Arduino : MonoBehaviour
     private float displayedSpeed = 0f;
     private float lastPortAttemptTime = 0f;
     private float speedMultiplier = 1f;
-    private float boostTimer = 0f;
 
     void Start()
     {
@@ -56,12 +58,14 @@ public class PlayerController_Arduino : MonoBehaviour
         if (Input.GetButtonDown("Jump"))
             rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
-        // Send “faked” speed to Arduino for OLED
+        // Send speed and collectibles as CSV to Arduino
         if (portOpen && port != null && port.IsOpen)
         {
-            float actualSpeed = rb.linearVelocity.magnitude * speedScale; // scale for tiny car
+            float actualSpeed = rb.linearVelocity.magnitude * speedScale;
             displayedSpeed = Mathf.Lerp(displayedSpeed, actualSpeed, Time.deltaTime * speedSmoothFactor);
-            port.WriteLine(displayedSpeed.ToString("F1"));
+
+            string message = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
+            port.WriteLine(message);
         }
     }
 
