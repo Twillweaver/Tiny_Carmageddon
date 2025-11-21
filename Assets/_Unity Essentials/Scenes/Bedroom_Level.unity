@@ -331,6 +331,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4453251587906699605, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
       insertIndex: -1
       addedObject: {fileID: 952899408}
+    - targetCorrespondingSourceObject: {fileID: 4453251587906699605, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 952899409}
   m_SourcePrefab: {fileID: 100100000, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
 --- !u!4 &107911570 stripped
 Transform:
@@ -803,7 +806,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 952899405}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5287c6cfeca86d043a08ef0ff106fc84, type: 3}
   m_Name: 
@@ -823,6 +826,28 @@ MonoBehaviour:
   boostMultiplier: 1.1
   boostDuration: 3
   brakeDeceleration: 3
+--- !u!114 &952899409
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 952899405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34e150596121cfd48bbda7f91459273c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerController_Arduino
+  speed: 3
+  rotationSpeed: 120
+  jumpForce: 5
+  portName: COM3
+  baudRate: 115200
+  deadzone: 0.02
+  useNonLinearCurve: 1
+  portRetryInterval: 2
+  speedScale: 1000
+  speedSmoothFactor: 5
 --- !u!1001 &960267570
 PrefabInstance:
   m_ObjectHideFlags: 0
