@@ -4653,6 +4653,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Mouse
       objectReference: {fileID: 0}
+    - target: {fileID: 3329391665535240821, guid: dddc3ae9a1ed446b6bf9d7ee0a2433a2, type: 3}
+      propertyPath: m_TagString
+      value: Enemy
+      objectReference: {fileID: 0}
     - target: {fileID: 3736748525192811542, guid: dddc3ae9a1ed446b6bf9d7ee0a2433a2, type: 3}
       propertyPath: m_UseGravity
       value: 1
@@ -4692,7 +4696,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ExplosiveCollectible
   explosionEffect: {fileID: 9163842254569548763, guid: a64312fe794124baa923bcca22ea4631, type: 3}
-  restartDelay: 1
+  pullUpHeight: 3
+  cameraPitchAngle: 90
+  movementSpeed: 10
+  orbitSpeed: 20
+  restartDelay: 4
 --- !u!81 &987702660461279805
 AudioListener:
   m_ObjectHideFlags: 0
@@ -4828,7 +4836,7 @@ GameObject:
   - component: {fileID: 7780365133065174058}
   m_Layer: 0
   m_Name: Main Camera
-  m_TagString: Untagged
+  m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -5133,7 +5141,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2642810353190517047}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b6dda37387a861641852b06352baf3ec, type: 3}
   m_Name: 
@@ -5149,7 +5157,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2642810353190517047}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d1702bf41e67df74788b6de23c821ffe, type: 3}
   m_Name: 
