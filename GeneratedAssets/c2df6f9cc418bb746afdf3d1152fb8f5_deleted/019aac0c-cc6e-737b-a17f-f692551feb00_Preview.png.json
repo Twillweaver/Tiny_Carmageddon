@@ -1,0 +1,11 @@
+{
+    "asset": "c2df6f9cc418bb746afdf3d1152fb8f5",
+    "fileName": "019aac0c-cc6e-737b-a17f-f692551feb00_Preview.png",
+    "prompt": "Material representing variable temperature with blue light for morning and orange light for afternoon to reflect real-life conditions.",
+    "negativePrompt": "",
+    "model": "44ec3749-963a-44b1-aa54-dc19f6ed8ab2",
+    "modelName": "Unity Texture2D",
+    "customSeed": 1038959759,
+    "w3CTraceId": "8b6ebbc83129e5b1434c61846bff12a2",
+    "refinementMode": "Generation"
+}
