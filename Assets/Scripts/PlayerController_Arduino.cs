@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.IO.Ports;
+using TMPro;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController_Arduino : MonoBehaviour
@@ -19,11 +20,12 @@ public class PlayerController_Arduino : MonoBehaviour
     public float portRetryInterval = 2f;
 
     [Header("Speed Display Scaling")]
-    public float speedScale = 60f;       // Scale factor to “fake” speed for OLED
-    public float speedSmoothFactor = 5f; // Smooth displayed speed
+    public float speedScale = 60f;
+    public float speedSmoothFactor = 5f;
 
     [Header("Collectibles")]
-    public int collectibles = 0;         // Counter for collectibles
+    public int collectibles = 0;
+    public TextMeshProUGUI countText;
 
     private Rigidbody rb;
     private SerialPort port;
@@ -31,6 +33,12 @@ public class PlayerController_Arduino : MonoBehaviour
     private float steeringValue = 0f;
     private float displayedSpeed = 0f;
     private float lastPortAttemptTime = 0f;
+
+    // TM1638 button states
+    private bool btnForward = false;
+    private bool btnBackward = false;
+    private bool btnBrake = false;
+
     private float speedMultiplier = 1f;
 
     void Start()
@@ -46,7 +54,6 @@ public class PlayerController_Arduino : MonoBehaviour
 
     void Update()
     {
-        // Retry COM port if not open
         if (!portOpen && Time.time - lastPortAttemptTime > portRetryInterval)
         {
             OpenPort();
@@ -58,14 +65,13 @@ public class PlayerController_Arduino : MonoBehaviour
         if (Input.GetButtonDown("Jump"))
             rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
-        // Send speed and collectibles as CSV to Arduino
         if (portOpen && port != null && port.IsOpen)
         {
             float actualSpeed = rb.linearVelocity.magnitude * speedScale;
             displayedSpeed = Mathf.Lerp(displayedSpeed, actualSpeed, Time.deltaTime * speedSmoothFactor);
 
-            string message = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
-            port.WriteLine(message);
+            string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
+            port.WriteLine(msg);
         }
     }
 
@@ -76,7 +82,12 @@ public class PlayerController_Arduino : MonoBehaviour
 
     void HandleMovement()
     {
-        float moveVertical = Input.GetAxis("Vertical");
+        float keyboardVertical = Input.GetAxis("Vertical");
+
+        float moveVertical = keyboardVertical;
+        if (btnForward) moveVertical = 1f;
+        if (btnBackward) moveVertical = -1f;
+
         float turn = portOpen ? steeringValue : Input.GetAxis("Horizontal");
 
         float appliedSpeed = speed;
@@ -84,7 +95,8 @@ public class PlayerController_Arduino : MonoBehaviour
         if (Input.GetKey(KeyCode.LeftShift))
             appliedSpeed *= 1.1f;
 
-        if (Input.GetKey(KeyCode.C))
+        // S5 brake (updated)
+        if (btnBrake || Input.GetKey(KeyCode.C))
         {
             speedMultiplier -= 1f * Time.fixedDeltaTime;
             speedMultiplier = Mathf.Clamp(speedMultiplier, 0f, 1f);
@@ -111,15 +123,19 @@ public class PlayerController_Arduino : MonoBehaviour
             port.ReadTimeout = 50;
             port.Open();
             portOpen = true;
+
             Debug.Log("COM port opened: " + portName);
         }
         catch
         {
             portOpen = false;
-            Debug.LogWarning("Could not open COM port. Keyboard fallback active.");
+            Debug.LogWarning("Could not open COM port. Using keyboard fallback.");
         }
     }
 
+    // ============================================================
+    //  ARDUINO PARSER
+    // ============================================================
     void ReadArduino()
     {
         if (!portOpen) return;
@@ -127,7 +143,12 @@ public class PlayerController_Arduino : MonoBehaviour
         try
         {
             string line = port.ReadLine().Trim();
-            int raw = int.Parse(line);
+            string[] parts = line.Split(',');
+
+            if (parts.Length != 2)
+                return;
+
+            int raw = int.Parse(parts[0]);
             float normalized = Mathf.Clamp01(raw / 1023f);
             float rawSteering = Mathf.Lerp(-1f, 1f, normalized);
 
@@ -135,11 +156,26 @@ public class PlayerController_Arduino : MonoBehaviour
                 rawSteering = 0f;
 
             if (useNonLinearCurve)
-                rawSteering = Mathf.Sign(rawSteering) * Mathf.Pow(Mathf.Abs(rawSteering), 1.2f);
+                rawSteering = Mathf.Sign(rawSteering) *
+                              Mathf.Pow(Mathf.Abs(rawSteering), 1.2f);
 
             steeringValue = rawSteering;
+
+            int mask = int.Parse(parts[1]);
+
+            // S1 → forward (bit 0)
+            btnForward = (mask & 0b00000001) != 0;
+
+            // S3 → backward (bit 2)
+            btnBackward = (mask & 0b00000100) != 0;
+
+            // S5 → brake (bit 4) — UPDATED
+            btnBrake = (mask & 0b00010000) != 0;
         }
-        catch { }
+        catch
+        {
+            // ignore bad lines
+        }
     }
 
     private void OnApplicationQuit()
