@@ -8,10 +8,10 @@ public class ExplosiveCollectible : MonoBehaviour
     public GameObject explosionEffect;
 
     [Header("Camera Death Movement")]
-    public float pullUpHeight = 5f;          // Height camera moves up
-    public float cameraPitchAngle = 45f;     // Tilt down angle
-    public float movementSpeed = 2f;         // Upward movement speed
-    public float orbitSpeed = 50f;           // Degrees per second
+    public float pullUpHeight = 5f;
+    public float cameraPitchAngle = 45f;
+    public float movementSpeed = 2f;
+    public float orbitSpeed = 50f;
 
     [Header("Restart Delay")]
     public float restartDelay = 2f;
@@ -21,11 +21,19 @@ public class ExplosiveCollectible : MonoBehaviour
         if (!other.CompareTag("Player"))
             return;
 
+        // -----------------------------------------------------
+        // NEW: Trigger Game Over UI BEFORE disabling scripts
+        // -----------------------------------------------------
+        PlayerController_Arduino pc = other.GetComponent<PlayerController_Arduino>();
+        if (pc != null)
+            pc.ShowGameOver();   // <- THIS is what makes the UI appear
+        // -----------------------------------------------------
+
         // --- Spawn explosion ---
         if (explosionEffect != null)
             Instantiate(explosionEffect, other.transform.position, Quaternion.identity);
 
-        // --- Disable player scripts ---
+        // --- Disable player scripts (animations, movement, etc.) ---
         MonoBehaviour[] playerScripts = other.GetComponents<MonoBehaviour>();
         foreach (MonoBehaviour s in playerScripts)
             s.enabled = false;
@@ -34,11 +42,10 @@ public class ExplosiveCollectible : MonoBehaviour
         Camera originalCam = Camera.main;
         if (originalCam != null)
         {
-            // Create new camera object
             GameObject deathCamObj = new GameObject("DeathCamera");
             Camera deathCam = deathCamObj.AddComponent<Camera>();
 
-            // Copy settings from original camera
+            // Copy settings
             deathCam.transform.position = originalCam.transform.position;
             deathCam.transform.rotation = originalCam.transform.rotation;
             deathCam.fieldOfView = originalCam.fieldOfView;
@@ -47,20 +54,19 @@ public class ExplosiveCollectible : MonoBehaviour
             deathCam.nearClipPlane = originalCam.nearClipPlane;
             deathCam.farClipPlane = originalCam.farClipPlane;
 
-            // Disable original camera
+            // Turn off real camera
             originalCam.gameObject.SetActive(false);
 
-            // Start cinematic sequence
+            // Cinematic camera movement
             StartCoroutine(CinematicCamera(deathCam.transform, other.transform));
         }
 
-        // --- Restart scene ---
+        // Restart scene after delay
         StartCoroutine(Restart());
     }
 
     private IEnumerator CinematicCamera(Transform cam, Transform player)
     {
-        // 1. Smooth rise and tilt
         Vector3 startPos = cam.position;
         Vector3 targetPos = startPos + new Vector3(0, pullUpHeight, 0);
         Quaternion startRot = cam.rotation;
@@ -75,21 +81,17 @@ public class ExplosiveCollectible : MonoBehaviour
             yield return null;
         }
 
-        // 2. Orbit around player until restart
         float elapsed = 0f;
         while (elapsed < restartDelay)
         {
             elapsed += Time.deltaTime;
 
-            // Rotate around player
             cam.RotateAround(player.position, Vector3.up, orbitSpeed * Time.deltaTime);
 
-            // Maintain height
             Vector3 pos = cam.position;
             pos.y = player.position.y + pullUpHeight;
             cam.position = pos;
 
-            // Look at player
             cam.LookAt(player.position + Vector3.up);
 
             yield return null;

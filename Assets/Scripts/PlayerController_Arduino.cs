@@ -1,6 +1,9 @@
 ﻿using UnityEngine;
 using System.IO.Ports;
 using TMPro;
+using System.Collections;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(Rigidbody))]
 public class PlayerController_Arduino : MonoBehaviour
@@ -9,7 +12,8 @@ public class PlayerController_Arduino : MonoBehaviour
     public float speed = 5.0f;
     public float rotationSpeed = 200.0f;
 
-    [Header("Jump")]
+
+[Header("Jump")]
     public float jumpForce = 5.0f;
 
     [Header("Arduino")]
@@ -17,6 +21,7 @@ public class PlayerController_Arduino : MonoBehaviour
     public int baudRate = 115200;
     public float deadzone = 0.02f;
     public bool useNonLinearCurve = true;
+    [Range(0f, 1f)] public float steeringCurveFactor = 0.7f;
     public float portRetryInterval = 2f;
 
     [Header("Speed Display Scaling")]
@@ -26,6 +31,28 @@ public class PlayerController_Arduino : MonoBehaviour
     [Header("Collectibles")]
     public int collectibles = 0;
     public TextMeshProUGUI countText;
+    public int totalCollectibles = 32;
+
+    [Header("Winner Text")]
+    public TextMeshProUGUI winnerText;
+    public float winnerPopScale = 2f;
+    public float winnerPopDuration = 0.3f;
+    public Color winnerColor = Color.green;
+
+    [Header("Game Over Text")]
+    public TextMeshProUGUI gameOverText;
+    public float gameOverPopScale = 2f;
+    public float gameOverPopDuration = 0.3f;
+    public Color gameOverColor = Color.red;
+
+    [Header("Fade")]
+    public Image fadeImage;
+    public float fadeDuration = 1f;
+
+    [Header("Collectibles UI Animation")]
+    public float popScale = 1.5f;
+    public float popDuration = 0.2f;
+    public Color popColor = Color.yellow;
 
     private Rigidbody rb;
     private SerialPort port;
@@ -34,12 +61,14 @@ public class PlayerController_Arduino : MonoBehaviour
     private float displayedSpeed = 0f;
     private float lastPortAttemptTime = 0f;
 
-    // TM1638 button states
     private bool btnForward = false;
     private bool btnBackward = false;
     private bool btnBrake = false;
 
     private float speedMultiplier = 1f;
+    private int lastCollectibleCount = 0;
+    private bool winnerShown = false;
+    private bool gameOverShown = false;
 
     void Start()
     {
@@ -50,6 +79,12 @@ public class PlayerController_Arduino : MonoBehaviour
         rb.mass = 1200f;
 
         OpenPort();
+
+        if (countText != null)
+            countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
+
+        if (winnerText != null) winnerText.gameObject.SetActive(false);
+        if (gameOverText != null) gameOverText.gameObject.SetActive(false);
     }
 
     void Update()
@@ -73,6 +108,28 @@ public class PlayerController_Arduino : MonoBehaviour
             string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
             port.WriteLine(msg);
         }
+
+        // Collectibles update
+        if (countText != null && collectibles > lastCollectibleCount)
+        {
+            countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
+            lastCollectibleCount = collectibles;
+
+            if (collectibles > 0)
+                StartCoroutine(PopText(countText, popScale, popDuration, popColor));
+        }
+
+        // Winner UI & restart
+        if (!winnerShown && collectibles >= totalCollectibles)
+        {
+            winnerShown = true;
+            if (winnerText != null)
+            {
+                winnerText.gameObject.SetActive(true);
+                StartCoroutine(PopText(winnerText, winnerPopScale, winnerPopDuration, winnerColor));
+            }
+            StartCoroutine(FadeAndRestart(4f));
+        }
     }
 
     void FixedUpdate()
@@ -95,14 +152,12 @@ public class PlayerController_Arduino : MonoBehaviour
         if (Input.GetKey(KeyCode.LeftShift))
             appliedSpeed *= 1.1f;
 
-        // S5 brake (updated)
         if (btnBrake || Input.GetKey(KeyCode.C))
         {
             speedMultiplier -= 1f * Time.fixedDeltaTime;
             speedMultiplier = Mathf.Clamp(speedMultiplier, 0f, 1f);
         }
-        else
-            speedMultiplier = 1f;
+        else speedMultiplier = 1f;
 
         appliedSpeed *= speedMultiplier;
 
@@ -113,6 +168,78 @@ public class PlayerController_Arduino : MonoBehaviour
         rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turnAmount, 0f));
     }
 
+    // -------------------------------------------------------
+    // Game Over
+    // -------------------------------------------------------
+    public void ShowGameOver()
+    {
+        if (gameOverShown) return;
+        gameOverShown = true;
+
+        if (gameOverText != null)
+        {
+            gameOverText.gameObject.SetActive(true);
+            StartCoroutine(PopText(gameOverText, gameOverPopScale, gameOverPopDuration, gameOverColor));
+        }
+
+        StartCoroutine(FadeAndRestart(4f));
+    }
+
+    // -------------------------------------------------------
+    // Null-safe Fade & Restart
+    // -------------------------------------------------------
+    private IEnumerator FadeAndRestart(float delay)
+    {
+        if (fadeImage != null)
+        {
+            float elapsed = 0f;
+            Color startColor = fadeImage.color;
+            Color targetColor = new Color(0f, 0f, 0f, 1f);
+
+            while (elapsed < fadeDuration)
+            {
+                elapsed += Time.deltaTime;
+                fadeImage.color = Color.Lerp(startColor, targetColor, elapsed / fadeDuration);
+                yield return null;
+            }
+
+            fadeImage.color = targetColor;
+        }
+
+        yield return new WaitForSeconds(Mathf.Max(0f, delay - fadeDuration));
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    // -------------------------------------------------------
+    // Shared Pop Animation
+    // -------------------------------------------------------
+    private IEnumerator PopText(TextMeshProUGUI textElement, float scale, float duration, Color color)
+    {
+        if (textElement == null) yield break;
+
+        Vector3 originalScale = textElement.transform.localScale;
+        Color originalColor = textElement.color;
+
+        textElement.transform.localScale = originalScale * scale;
+        textElement.color = color;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            float t = elapsed / duration;
+            textElement.transform.localScale = Vector3.Lerp(textElement.transform.localScale, originalScale, t);
+            textElement.color = Color.Lerp(color, originalColor, t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        textElement.transform.localScale = originalScale;
+        textElement.color = originalColor;
+    }
+
+    // -------------------------------------------------------
+    // Arduino Input + COM Port
+    // -------------------------------------------------------
     void OpenPort()
     {
         if (portOpen) return;
@@ -123,8 +250,6 @@ public class PlayerController_Arduino : MonoBehaviour
             port.ReadTimeout = 50;
             port.Open();
             portOpen = true;
-
-            Debug.Log("COM port opened: " + portName);
         }
         catch
         {
@@ -133,9 +258,6 @@ public class PlayerController_Arduino : MonoBehaviour
         }
     }
 
-    // ============================================================
-    //  ARDUINO PARSER
-    // ============================================================
     void ReadArduino()
     {
         if (!portOpen) return;
@@ -156,26 +278,19 @@ public class PlayerController_Arduino : MonoBehaviour
                 rawSteering = 0f;
 
             if (useNonLinearCurve)
-                rawSteering = Mathf.Sign(rawSteering) *
-                              Mathf.Pow(Mathf.Abs(rawSteering), 1.2f);
+            {
+                float t = rawSteering;
+                rawSteering = Mathf.Sin(t * Mathf.PI / 2) * steeringCurveFactor + t * (1 - steeringCurveFactor);
+            }
 
             steeringValue = rawSteering;
 
             int mask = int.Parse(parts[1]);
-
-            // S1 → forward (bit 0)
             btnForward = (mask & 0b00000001) != 0;
-
-            // S3 → backward (bit 2)
             btnBackward = (mask & 0b00000100) != 0;
-
-            // S5 → brake (bit 4) — UPDATED
             btnBrake = (mask & 0b00010000) != 0;
         }
-        catch
-        {
-            // ignore bad lines
-        }
+        catch { }
     }
 
     private void OnApplicationQuit()
@@ -183,4 +298,6 @@ public class PlayerController_Arduino : MonoBehaviour
         if (port != null && port.IsOpen)
             port.Close();
     }
+
+
 }
