@@ -153,7 +153,6 @@ GameObject:
   - component: {fileID: 6209307343688106791}
   - component: {fileID: 8200794786342500333}
   - component: {fileID: 7916611662952929238}
-  - component: {fileID: 5336034215416563189}
   m_Layer: 0
   m_Name: TableRectangleMedium
   m_TagString: Untagged
@@ -260,19 +259,3 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!208 &5336034215416563189
-NavMeshObstacle:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7696633177334240824}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Shape: 1
-  m_Extents: {x: 1.2490001, y: 1.194, z: 2.413}
-  m_MoveThreshold: 0.1
-  m_Carve: 0
-  m_CarveOnlyStationary: 1
-  m_Center: {x: 0, y: 1.166, z: 0}
-  m_TimeToStationary: 0.5
