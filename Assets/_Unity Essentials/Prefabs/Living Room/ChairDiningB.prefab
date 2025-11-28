@@ -313,6 +313,7 @@ GameObject:
   - component: {fileID: 8897361454555195408}
   - component: {fileID: 5536644192657008565}
   - component: {fileID: 7724495550373696383}
+  - component: {fileID: 744741860993098397}
   - component: {fileID: 4419903774032719980}
   m_Layer: 0
   m_Name: ChairDiningB
@@ -393,6 +394,22 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!208 &744741860993098397
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8084550355086717610}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.75000006, y: 1.5320001, z: 0.674}
+  m_MoveThreshold: 0.1
+  m_Carve: 0
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0.030000001, y: 1.5040001, z: -0.012}
+  m_TimeToStationary: 0.5
 --- !u!54 &4419903774032719980
 Rigidbody:
   m_ObjectHideFlags: 0

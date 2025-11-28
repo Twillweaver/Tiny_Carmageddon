@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 4347429713178535037}
   - component: {fileID: 1995616918818312375}
   - component: {fileID: 729183150429375614}
+  - component: {fileID: 2177976754550752957}
   m_Layer: 0
   m_Name: ShelvesMediumA
   m_TagString: Untagged
@@ -59,6 +60,11 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -80,6 +86,7 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -105,3 +112,19 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.76727986, y: 2.838236, z: 2.8388455}
   m_Center: {x: 0.00000037252903, y: 1.4010986, z: -0.00000059604645}
+--- !u!208 &2177976754550752957
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49864448021852514}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.384, y: 1.419, z: 1.419}
+  m_MoveThreshold: 0.1
+  m_Carve: 0
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 1.401, z: 0}
+  m_TimeToStationary: 0.5
