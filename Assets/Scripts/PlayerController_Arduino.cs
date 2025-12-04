@@ -12,8 +12,7 @@ public class PlayerController_Arduino : MonoBehaviour
     public float speed = 5.0f;
     public float rotationSpeed = 200.0f;
 
-
-[Header("Jump")]
+    [Header("Jump")]
     public float jumpForce = 5.0f;
 
     [Header("Arduino")]
@@ -32,6 +31,13 @@ public class PlayerController_Arduino : MonoBehaviour
     public int collectibles = 0;
     public TextMeshProUGUI countText;
     public int totalCollectibles = 32;
+
+    [Header("Speed UI")]
+    public TextMeshProUGUI speedText;
+    public float speedPopThreshold = 5f;
+    public float speedPopScale = 1.5f;
+    public float speedPopDuration = 0.2f;
+    public Color speedPopColor = Color.cyan;
 
     [Header("Winner Text")]
     public TextMeshProUGUI winnerText;
@@ -54,11 +60,15 @@ public class PlayerController_Arduino : MonoBehaviour
     public float popDuration = 0.2f;
     public Color popColor = Color.yellow;
 
+    // -------------------------------------------------------
+    // Private fields
+    // -------------------------------------------------------
     private Rigidbody rb;
     private SerialPort port;
     private bool portOpen = false;
     private float steeringValue = 0f;
     private float displayedSpeed = 0f;
+    private float lastDisplayedSpeed = 0f;
     private float lastPortAttemptTime = 0f;
 
     private bool btnForward = false;
@@ -70,6 +80,8 @@ public class PlayerController_Arduino : MonoBehaviour
     private bool winnerShown = false;
     private bool gameOverShown = false;
 
+    private bool speedPopRunning = false; // Flag to prevent overlapping speed pops
+
     void Start()
     {
         rb = GetComponent<Rigidbody>();
@@ -77,6 +89,10 @@ public class PlayerController_Arduino : MonoBehaviour
         rb.angularDamping = 1.5f;
         rb.linearDamping = 0.5f;
         rb.mass = 1200f;
+
+        // Initialize displayed speed to current velocity
+        lastDisplayedSpeed = rb.linearVelocity.magnitude * speedScale;
+        displayedSpeed = lastDisplayedSpeed;
 
         OpenPort();
 
@@ -89,6 +105,7 @@ public class PlayerController_Arduino : MonoBehaviour
 
     void Update()
     {
+        // Retry COM port if closed
         if (!portOpen && Time.time - lastPortAttemptTime > portRetryInterval)
         {
             OpenPort();
@@ -100,16 +117,39 @@ public class PlayerController_Arduino : MonoBehaviour
         if (Input.GetButtonDown("Jump"))
             rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
+        // -----------------------
+        // SPEED CALCULATION & UI
+        // -----------------------
+        float rawSpeed = rb.linearVelocity.magnitude * speedScale;
+        float actualSpeed = (rawSpeed < 0.1f) ? 0f : rawSpeed; // Deadzone to ignore small jitter
+        displayedSpeed = Mathf.Lerp(displayedSpeed, actualSpeed, Time.deltaTime * speedSmoothFactor);
+
+        if (speedText != null)
+        {
+            speedText.text = $"Speed: {displayedSpeed:F0} mph";
+
+            // Trigger pop if speed changed significantly and pop is not running
+            if (!speedPopRunning && Mathf.Abs(actualSpeed - lastDisplayedSpeed) > speedPopThreshold)
+            {
+                StartCoroutine(PopText(speedText, speedPopScale, speedPopDuration, speedPopColor, () => speedPopRunning = false));
+                speedPopRunning = true;
+            }
+
+            lastDisplayedSpeed = actualSpeed;
+        }
+
+        // -----------------------
+        // SERIAL MESSAGE (Arduino)
+        // -----------------------
         if (portOpen && port != null && port.IsOpen)
         {
-            float actualSpeed = rb.linearVelocity.magnitude * speedScale;
-            displayedSpeed = Mathf.Lerp(displayedSpeed, actualSpeed, Time.deltaTime * speedSmoothFactor);
-
             string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
             port.WriteLine(msg);
         }
 
-        // Collectibles update
+        // -----------------------
+        // Collectibles UI
+        // -----------------------
         if (countText != null && collectibles > lastCollectibleCount)
         {
             countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
@@ -119,7 +159,9 @@ public class PlayerController_Arduino : MonoBehaviour
                 StartCoroutine(PopText(countText, popScale, popDuration, popColor));
         }
 
-        // Winner UI & restart
+        // -----------------------
+        // Winner UI
+        // -----------------------
         if (!winnerShown && collectibles >= totalCollectibles)
         {
             winnerShown = true;
@@ -140,7 +182,6 @@ public class PlayerController_Arduino : MonoBehaviour
     void HandleMovement()
     {
         float keyboardVertical = Input.GetAxis("Vertical");
-
         float moveVertical = keyboardVertical;
         if (btnForward) moveVertical = 1f;
         if (btnBackward) moveVertical = -1f;
@@ -211,15 +252,16 @@ public class PlayerController_Arduino : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    // Shared Pop Animation
+    // Shared Pop Animation with optional callback
     // -------------------------------------------------------
-    private IEnumerator PopText(TextMeshProUGUI textElement, float scale, float duration, Color color)
+    private IEnumerator PopText(TextMeshProUGUI textElement, float scale, float duration, Color color, System.Action onComplete = null)
     {
         if (textElement == null) yield break;
 
-        Vector3 originalScale = textElement.transform.localScale;
+        Vector3 originalScale = textElement.transform.localScale; // store the scale at start
         Color originalColor = textElement.color;
 
+        // scale relative to original
         textElement.transform.localScale = originalScale * scale;
         textElement.color = color;
 
@@ -233,9 +275,13 @@ public class PlayerController_Arduino : MonoBehaviour
             yield return null;
         }
 
+        // restore original scale and color
         textElement.transform.localScale = originalScale;
         textElement.color = originalColor;
+
+        onComplete?.Invoke();
     }
+
 
     // -------------------------------------------------------
     // Arduino Input + COM Port
@@ -298,6 +344,4 @@ public class PlayerController_Arduino : MonoBehaviour
         if (port != null && port.IsOpen)
             port.Close();
     }
-
-
 }
