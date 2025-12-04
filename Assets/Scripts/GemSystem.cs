@@ -19,7 +19,7 @@ public class GemSystem : MonoBehaviour
 
     void Start()
     {
-        RespawnGem(); // Spawn first gem
+       // RespawnGem(); // Spawn first gem
     }
 
     public void OnGemCollected()
