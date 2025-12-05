@@ -1988,7 +1988,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &248943637
 Transform:
   m_ObjectHideFlags: 0
@@ -5137,7 +5137,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController_Arduino
   speed: 3
-  rotationSpeed: 200
+  rotationSpeed: 100
   jumpForce: 5
   tiltThreshold: 40
   restoreSpeed: 6
@@ -5180,6 +5180,10 @@ MonoBehaviour:
   popScale: 1.2
   popDuration: 0.3
   popColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  steeringSensitivity: 3
+  steeringDecay: 2
+  edgeThreshold: 0.95
+  edgeSmoothSpeed: 5
 --- !u!1001 &958972541
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8583,6 +8587,14 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 1.78
       objectReference: {fileID: 0}
+    - target: {fileID: 440906053747006124, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 440906053747006124, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
+      objectReference: {fileID: 0}
     - target: {fileID: 809515344609654794, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 1.609
@@ -8691,9 +8703,21 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5317318152158754676, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5705239217546221146, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7142257596094474511, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7142257596094474511, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
       objectReference: {fileID: 0}
     - target: {fileID: 7191215454107029894, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Enabled
@@ -8715,6 +8739,18 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 7918622009360647579, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8064467624127386273, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8064467624127386273, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
+      objectReference: {fileID: 0}
     - target: {fileID: 8293445118688441575, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -8722,6 +8758,14 @@ PrefabInstance:
     - target: {fileID: 8797751318400152199, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 9135341161285179041, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9135341161285179041, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 0}
@@ -13213,7 +13257,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.5
-  m_Speed: 1.2
+  m_Speed: 0.7
   m_Acceleration: 10
   avoidancePriority: 50
   m_AngularSpeed: 120
@@ -13373,11 +13417,11 @@ MonoBehaviour:
   m_SerializedVersion: 0
   m_AgentTypeID: 0
   m_CollectObjects: 1
-  m_Size: {x: 7.12, y: 0.19999981, z: 10.8}
+  m_Size: {x: 5.74, y: -0.3, z: 7.5}
   m_Center: {x: -0.57913315, y: 5, z: -3.7925534}
   m_LayerMask:
     serializedVersion: 2
-    m_Bits: 1
+    m_Bits: 8
   m_UseGeometry: 0
   m_DefaultArea: 0
   m_GenerateLinks: 0
@@ -13538,6 +13582,10 @@ PrefabInstance:
       propertyPath: m_Layer
       value: 3
       objectReference: {fileID: 0}
+    - target: {fileID: 3167633194786228307, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
+      objectReference: {fileID: 0}
     - target: {fileID: 3318279074037847244, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.98870003
@@ -13582,6 +13630,10 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5317318152158754676, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6807118617648097680, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -13618,6 +13670,10 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 7918622009360647579, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8061979221343808950, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -13625,6 +13681,10 @@ PrefabInstance:
     - target: {fileID: 8064467624127386273, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Layer
       value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 8064467624127386273, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
       objectReference: {fileID: 0}
     - target: {fileID: 8395863241306389292, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_IsActive
@@ -13637,6 +13697,10 @@ PrefabInstance:
     - target: {fileID: 9135341161285179041, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Layer
       value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 9135341161285179041, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_TagString
+      value: Floor
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 1658587359567476862, guid: 625a16b402cfd487494f48992994e27e, type: 3}

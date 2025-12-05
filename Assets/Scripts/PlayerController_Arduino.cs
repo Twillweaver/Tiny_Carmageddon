@@ -108,6 +108,12 @@ public class PlayerController_Arduino : MonoBehaviour
     private float boostTimer = 0f;
     private float speedMultiplier = 1f; // 1 = full speed, 0 = stopped
 
+    private float lastRawSteering = 0f;
+    public float steeringSensitivity = 3.0f;   // how strongly pot movement affects steering
+    public float steeringDecay = 2.0f;         // how fast steering recentres
+    public float edgeThreshold = 0.95f;        // when absolute pot is near full left/right
+    public float edgeSmoothSpeed = 5f;         // how quickly steering reaches edge value
+    private float smoothedSteering = 0f;
 
     private bool speedPopRunning = false; // Flag to prevent overlapping speed pops
 
@@ -292,7 +298,15 @@ public class PlayerController_Arduino : MonoBehaviour
         if (btnForward) moveVertical = 1f;
         if (btnBackward) moveVertical = -1f;
 
-        float turn = portOpen ? steeringValue : Input.GetAxis("Horizontal");
+        float turnInput = portOpen ? steeringValue : Input.GetAxis("Horizontal");
+
+        // --- Apply non-linear arcade curve only when sending to Rigidbody ---
+        if (useNonLinearCurve)
+        {
+            float t = turnInput;
+            float a = steeringCurveFactor; // 0 = linear, 1 = very arcade
+            turnInput = t * (a + (1f - a) * t * t);
+        }
 
         float appliedSpeed = speed;
 
@@ -324,13 +338,13 @@ public class PlayerController_Arduino : MonoBehaviour
 
         appliedSpeed *= speedMultiplier;
 
-
         Vector3 movement = transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime;
         rb.MovePosition(rb.position + movement);
 
-        float turnAmount = turn * rotationSpeed * Time.fixedDeltaTime;
+        float turnAmount = turnInput * rotationSpeed * Time.fixedDeltaTime;
         rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turnAmount, 0f));
     }
+
 
     // -------------------------------------------------------
     // Game Over
@@ -443,33 +457,40 @@ public class PlayerController_Arduino : MonoBehaviour
             string line = port.ReadLine().Trim();
             string[] parts = line.Split(',');
 
-            if (parts.Length != 2)
-                return;
+            if (parts.Length != 2) return;
 
+            // --- Read potentiometer and map to -1 to 1 ---
             int raw = int.Parse(parts[0]);
             float normalized = Mathf.Clamp01(raw / 1023f);
-            float rawSteering = Mathf.Lerp(-1f, 1f, normalized);
+            float absoluteSteer = Mathf.Lerp(-1f, 1f, normalized);
 
-            if (Mathf.Abs(rawSteering) < deadzone)
-                rawSteering = 0f;
-
-            if (useNonLinearCurve)
+            // Only apply steering if moving
+            float speedThreshold = 0.1f;
+            if (rb.linearVelocity.magnitude * speedScale > speedThreshold)
             {
-           
-                    float t = rawSteering; // -1 to 1
+                // Determine target based on edges
+                float target = 0f;
+                if (absoluteSteer >= edgeThreshold) target = 1f;
+                else if (absoluteSteer <= -edgeThreshold) target = -1f;
+                else target = absoluteSteer;
 
-                    // Arcade steering factor (0 = linear, 1 = very arcade)
-                    float a = steeringCurveFactor;   // Try 0.6 in Inspector
+                // Smoothly move towards target
+                float smoothSpeed = (Mathf.Abs(target) == 1f) ? edgeSmoothSpeed : steeringDecay;
+                smoothedSteering = Mathf.MoveTowards(smoothedSteering, target, smoothSpeed * Time.deltaTime);
 
-                    // Arcade steering curve:
-                    // More response away from centre, soft centre, predictable edges
-                    rawSteering = t * (a + (1f - a) * t * t);
-                
+                // Apply delta to smoothed value for small movements
+                float delta = absoluteSteer - lastRawSteering;
+                lastRawSteering = absoluteSteer;
 
+                if (Mathf.Abs(delta) > deadzone)
+                    smoothedSteering += delta * steeringSensitivity * Time.deltaTime;
+
+                smoothedSteering = Mathf.Clamp(smoothedSteering, -1f, 1f);
+
+                steeringValue = smoothedSteering;
             }
 
-            steeringValue = rawSteering;
-
+            // --- Read buttons ---
             int mask = int.Parse(parts[1]);
             btnForward = (mask & 0b00000001) != 0;
             btnBackward = (mask & 0b00000100) != 0;
@@ -477,6 +498,9 @@ public class PlayerController_Arduino : MonoBehaviour
         }
         catch { }
     }
+
+
+
 
     private void OnApplicationQuit()
     {
