@@ -2653,6 +2653,18 @@ MonoBehaviour:
   speed: 3
   rotationSpeed: 200
   jumpForce: 5
+  tiltThreshold: 40
+  restoreSpeed: 6
+  maxCorrectionPerSecond: 180
+  flipDotThreshold: -0.1
+  onlyWhenAirborne: 0
+  centerOfMassYOffset: -0.4
+  angularDragValue: 1.5
+  linearDragValue: 0.5
+  extraGravityForce: 120
+  boostMultiplier: 1.1
+  boostDuration: 3
+  brakeDeceleration: 3
   portName: COM3
   baudRate: 115200
   deadzone: 0.02
@@ -4844,6 +4856,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 1.418
       objectReference: {fileID: 0}
+    - target: {fileID: 2542947572197010399, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2601543861393035090, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: closeDelay
       value: 5
@@ -4892,6 +4908,14 @@ PrefabInstance:
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5705239217546221146, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7191215454107029894, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7249813920239187211, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: closeDelay
       value: 5
@@ -4905,6 +4929,10 @@ PrefabInstance:
       value: 03_Living_Room (1)
       objectReference: {fileID: 0}
     - target: {fileID: 7787142867203483968, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8293445118688441575, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_Enabled
       value: 1
       objectReference: {fileID: 0}
@@ -8174,6 +8202,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 2542947572197010399, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2601543861393035090, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: closeDelay
       value: 5
@@ -8237,6 +8269,10 @@ PrefabInstance:
     - target: {fileID: 7142257596094474511, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: m_TagString
       value: Floor
+      objectReference: {fileID: 0}
+    - target: {fileID: 7191215454107029894, guid: 625a16b402cfd487494f48992994e27e, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7249813920239187211, guid: 625a16b402cfd487494f48992994e27e, type: 3}
       propertyPath: closeDelay

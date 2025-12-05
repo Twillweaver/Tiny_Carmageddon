@@ -15,6 +15,26 @@ public class PlayerController_Arduino : MonoBehaviour
     [Header("Jump")]
     public float jumpForce = 5.0f;
 
+    [Header("Auto Righting")]
+    public float tiltThreshold = 40f;
+    public float restoreSpeed = 6f;
+    public float maxCorrectionPerSecond = 180f;
+    public float flipDotThreshold = -0.1f;
+    public bool onlyWhenAirborne = false;
+
+    [Header("Physics Tuning")]
+    public float centerOfMassYOffset = -0.4f;
+    public float angularDragValue = 1.5f;
+    public float linearDragValue = 0.5f;
+    public float extraGravityForce = 120f;
+
+    [Header("Shift Boost")]
+    public float boostMultiplier = 1.1f;
+    public float boostDuration = 3f;
+
+    [Header("Brake Settings")]
+    public float brakeDeceleration = 1f; // speed multiplier reduced per second when C held
+
     [Header("Arduino")]
     public string portName = "COM3";
     public int baudRate = 115200;
@@ -75,7 +95,7 @@ public class PlayerController_Arduino : MonoBehaviour
     private bool btnBackward = false;
     private bool btnBrake = false;
 
-    private float speedMultiplier = 1f;
+   
     private int lastCollectibleCount = 0;
     private bool winnerShown = false;
     private bool gameOverShown = false;
@@ -85,16 +105,23 @@ public class PlayerController_Arduino : MonoBehaviour
     private Vector3 winnerTextOriginalScale;
     private Vector3 gameOverTextOriginalScale;
 
+    private float boostTimer = 0f;
+    private float speedMultiplier = 1f; // 1 = full speed, 0 = stopped
+
 
     private bool speedPopRunning = false; // Flag to prevent overlapping speed pops
 
     void Start()
     {
         rb = GetComponent<Rigidbody>();
-        rb.centerOfMass = new Vector3(0f, -0.4f, 0f);
-        rb.angularDamping = 1.5f;
-        rb.linearDamping = 0.5f;
-        rb.mass = 1200f;
+        rb.centerOfMass = new Vector3(0f, centerOfMassYOffset, 0f);
+        rb.angularDamping = angularDragValue;
+        rb.linearDamping = linearDragValue;
+
+        rb.mass = 1500f;
+
+     
+
 
         // Initialize displayed speed to current velocity
         lastDisplayedSpeed = rb.linearVelocity.magnitude * speedScale;
@@ -195,10 +222,67 @@ public class PlayerController_Arduino : MonoBehaviour
         return Vector3.one; // fallback
     }
 
+    private void HandleAutoRight()
+    {
+        Vector3 up = transform.up;
+        float tiltAngle = Vector3.Angle(up, Vector3.up);
+        float upDot = Vector3.Dot(up, Vector3.up);
+
+        bool isFlipped = upDot < flipDotThreshold;
+        bool isTooTilted = tiltAngle > tiltThreshold;
+
+        if (!isFlipped && !isTooTilted)
+            return;
+
+        if (onlyWhenAirborne && IsGrounded())
+            return;
+
+        float yaw = rb.rotation.eulerAngles.y;
+        Quaternion target = Quaternion.Euler(0f, yaw, 0f);
+
+        float step = restoreSpeed * Time.fixedDeltaTime;
+        Quaternion slerped = Quaternion.Slerp(rb.rotation, target, step);
+
+        float maxStep = maxCorrectionPerSecond * Time.fixedDeltaTime;
+        Quaternion finalRot = Quaternion.RotateTowards(rb.rotation, slerped, maxStep);
+
+        rb.MoveRotation(finalRot);
+
+        Vector3 localAngVel = transform.InverseTransformDirection(rb.angularVelocity);
+        localAngVel.x *= 0.2f;
+        localAngVel.z *= 0.2f;
+        rb.angularVelocity = transform.TransformDirection(localAngVel);
+    }
+
+    private bool IsGrounded()
+    {
+        float rayLength = 1.2f;
+        Vector3[] offsets = {
+        Vector3.zero,
+        new Vector3(0.5f, 0, 0.5f),
+        new Vector3(-0.5f, 0, 0.5f),
+        new Vector3(0.5f, 0, -0.5f),
+        new Vector3(-0.5f, 0, -0.5f)
+    };
+
+        foreach (var offset in offsets)
+        {
+            if (Physics.Raycast(transform.position + offset, Vector3.down, rayLength))
+                return true;
+        }
+
+        return false;
+    }
+
 
     void FixedUpdate()
     {
         HandleMovement();
+
+        if (!IsGrounded())
+            rb.AddForce(Vector3.down * extraGravityForce, ForceMode.Acceleration);
+
+        HandleAutoRight();
     }
 
     void HandleMovement()
@@ -212,17 +296,34 @@ public class PlayerController_Arduino : MonoBehaviour
 
         float appliedSpeed = speed;
 
-        if (Input.GetKey(KeyCode.LeftShift))
-            appliedSpeed *= 1.1f;
+        // ----------------------
+        // Shift Boost
+        // ----------------------
+        if (Input.GetKey(KeyCode.LeftShift) && boostTimer < boostDuration)
+        {
+            appliedSpeed *= boostMultiplier;
+            boostTimer += Time.fixedDeltaTime;
+        }
+        else if (!Input.GetKey(KeyCode.LeftShift))
+        {
+            boostTimer = 0f;
+        }
 
+        // ----------------------
+        // Brake (C key or Arduino brake)
+        // ----------------------
         if (btnBrake || Input.GetKey(KeyCode.C))
         {
-            speedMultiplier -= 1f * Time.fixedDeltaTime;
+            speedMultiplier -= brakeDeceleration * Time.fixedDeltaTime;
             speedMultiplier = Mathf.Clamp(speedMultiplier, 0f, 1f);
         }
-        else speedMultiplier = 1f;
+        else
+        {
+            speedMultiplier = 1f;
+        }
 
         appliedSpeed *= speedMultiplier;
+
 
         Vector3 movement = transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime;
         rb.MovePosition(rb.position + movement);
@@ -354,8 +455,7 @@ public class PlayerController_Arduino : MonoBehaviour
 
             if (useNonLinearCurve)
             {
-                if (useNonLinearCurve)
-                {
+           
                     float t = rawSteering; // -1 to 1
 
                     // Arcade steering factor (0 = linear, 1 = very arcade)
@@ -364,7 +464,7 @@ public class PlayerController_Arduino : MonoBehaviour
                     // Arcade steering curve:
                     // More response away from centre, soft centre, predictable edges
                     rawSteering = t * (a + (1f - a) * t * t);
-                }
+                
 
             }
 
