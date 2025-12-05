@@ -18,7 +18,7 @@ public class PlayerController_Arduino : MonoBehaviour
     [Header("Arduino")]
     public string portName = "COM3";
     public int baudRate = 115200;
-    public float deadzone = 0.02f;
+    public float deadzone = 0.02f; // prevents mild pot jitter
     public bool useNonLinearCurve = true;
     [Range(0f, 1f)] public float steeringCurveFactor = 0.7f;
     public float portRetryInterval = 2f;
@@ -80,6 +80,12 @@ public class PlayerController_Arduino : MonoBehaviour
     private bool winnerShown = false;
     private bool gameOverShown = false;
 
+    private Vector3 countTextOriginalScale;
+    private Vector3 speedTextOriginalScale;
+    private Vector3 winnerTextOriginalScale;
+    private Vector3 gameOverTextOriginalScale;
+
+
     private bool speedPopRunning = false; // Flag to prevent overlapping speed pops
 
     void Start()
@@ -101,6 +107,11 @@ public class PlayerController_Arduino : MonoBehaviour
 
         if (winnerText != null) winnerText.gameObject.SetActive(false);
         if (gameOverText != null) gameOverText.gameObject.SetActive(false);
+
+        if (countText != null) countTextOriginalScale = countText.transform.localScale;
+        if (speedText != null) speedTextOriginalScale = speedText.transform.localScale;
+        if (winnerText != null) winnerTextOriginalScale = winnerText.transform.localScale;
+        if (gameOverText != null) gameOverTextOriginalScale = gameOverText.transform.localScale;
     }
 
     void Update()
@@ -173,6 +184,17 @@ public class PlayerController_Arduino : MonoBehaviour
             StartCoroutine(FadeAndRestart(4f));
         }
     }
+
+    private Vector3 GetOriginalScale(TextMeshProUGUI text)
+    {
+        if (text == countText) return countTextOriginalScale;
+        if (text == speedText) return speedTextOriginalScale;
+        if (text == winnerText) return winnerTextOriginalScale;
+        if (text == gameOverText) return gameOverTextOriginalScale;
+
+        return Vector3.one; // fallback
+    }
+
 
     void FixedUpdate()
     {
@@ -258,29 +280,36 @@ public class PlayerController_Arduino : MonoBehaviour
     {
         if (textElement == null) yield break;
 
-        Vector3 originalScale = textElement.transform.localScale; // store the scale at start
+        // Pick the correct stored original scale
+        Vector3 originalScale = GetOriginalScale(textElement);
+        Vector3 poppedScale = originalScale * scale;
         Color originalColor = textElement.color;
 
-        // scale relative to original
-        textElement.transform.localScale = originalScale * scale;
+        // Apply pop
+        textElement.transform.localScale = poppedScale;
         textElement.color = color;
 
         float elapsed = 0f;
+
         while (elapsed < duration)
         {
             float t = elapsed / duration;
-            textElement.transform.localScale = Vector3.Lerp(textElement.transform.localScale, originalScale, t);
+
+            textElement.transform.localScale = Vector3.Lerp(poppedScale, originalScale, t);
             textElement.color = Color.Lerp(color, originalColor, t);
+
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        // restore original scale and color
+        // Perfect restore
         textElement.transform.localScale = originalScale;
         textElement.color = originalColor;
 
         onComplete?.Invoke();
     }
+
+
 
 
     // -------------------------------------------------------
@@ -325,8 +354,18 @@ public class PlayerController_Arduino : MonoBehaviour
 
             if (useNonLinearCurve)
             {
-                float t = rawSteering;
-                rawSteering = Mathf.Sin(t * Mathf.PI / 2) * steeringCurveFactor + t * (1 - steeringCurveFactor);
+                if (useNonLinearCurve)
+                {
+                    float t = rawSteering; // -1 to 1
+
+                    // Arcade steering factor (0 = linear, 1 = very arcade)
+                    float a = steeringCurveFactor;   // Try 0.6 in Inspector
+
+                    // Arcade steering curve:
+                    // More response away from centre, soft centre, predictable edges
+                    rawSteering = t * (a + (1f - a) * t * t);
+                }
+
             }
 
             steeringValue = rawSteering;

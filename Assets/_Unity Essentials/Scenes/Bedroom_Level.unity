@@ -2651,7 +2651,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController_Arduino
   speed: 3
-  rotationSpeed: 120
+  rotationSpeed: 200
   jumpForce: 5
   portName: COM3
   baudRate: 115200
