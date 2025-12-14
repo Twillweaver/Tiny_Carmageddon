@@ -758,7 +758,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7747720665401502849, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
       propertyPath: m_Mass
-      value: 1500
+      value: 800
       objectReference: {fileID: 0}
     - target: {fileID: 7747720665401502849, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
       propertyPath: m_Interpolate
@@ -5138,18 +5138,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerController_Arduino
   speed: 3
   rotationSpeed: 100
-  jumpForce: 5
   tiltThreshold: 40
   restoreSpeed: 6
   maxCorrectionPerSecond: 180
   flipDotThreshold: -0.1
-  onlyWhenAirborne: 0
+  onlyWhenAirborne: 1
   centerOfMassYOffset: -0.4
   angularDragValue: 1.5
   linearDragValue: 0.5
-  extraGravityForce: 120
+  extraGravityForce: 300
   boostMultiplier: 1.1
   boostDuration: 3
+  accelerationForce: 120
+  maxSpeed: 30
+  groundDrag: 0.6
+  airDrag: 0.2
   brakeDeceleration: 3
   portName: COM3
   baudRate: 115200

@@ -12,8 +12,8 @@ public class PlayerController_Arduino : MonoBehaviour
     public float speed = 5.0f;
     public float rotationSpeed = 200.0f;
 
-    [Header("Jump")]
-    public float jumpForce = 5.0f;
+    //[Header("Jump")]
+    //public float jumpForce = 5.0f;
 
     [Header("Auto Righting")]
     public float tiltThreshold = 40f;
@@ -33,19 +33,20 @@ public class PlayerController_Arduino : MonoBehaviour
     public float boostDuration = 3f;
 
     [Header("Brake Settings")]
-    public float brakeDeceleration = 1f; // speed multiplier reduced per second when C held
+    public float brakeDeceleration = 1f;
 
     [Header("Arduino")]
     public string portName = "COM3";
     public int baudRate = 115200;
-    public float deadzone = 0.02f; // prevents mild pot jitter
+    public float deadzone = 0.02f;
     public bool useNonLinearCurve = true;
     [Range(0f, 1f)] public float steeringCurveFactor = 0.7f;
     public float portRetryInterval = 2f;
 
     [Header("Speed Display Scaling")]
-    public float speedScale = 60f;
+    public float unityUnitsToMeters = 0.1f; // real toy car scale
     public float speedSmoothFactor = 5f;
+    public float displaySpeedMultiplier = 12f; // scale for full-size car UI
 
     [Header("Collectibles")]
     public int collectibles = 0;
@@ -95,7 +96,6 @@ public class PlayerController_Arduino : MonoBehaviour
     private bool btnBackward = false;
     private bool btnBrake = false;
 
-   
     private int lastCollectibleCount = 0;
     private bool winnerShown = false;
     private bool gameOverShown = false;
@@ -104,18 +104,19 @@ public class PlayerController_Arduino : MonoBehaviour
     private Vector3 speedTextOriginalScale;
     private Vector3 winnerTextOriginalScale;
     private Vector3 gameOverTextOriginalScale;
+    private Vector3 lastFixedPosition;
 
     private float boostTimer = 0f;
-    private float speedMultiplier = 1f; // 1 = full speed, 0 = stopped
+    private float speedMultiplier = 1f;
 
     private float lastRawSteering = 0f;
-    public float steeringSensitivity = 3.0f;   // how strongly pot movement affects steering
-    public float steeringDecay = 2.0f;         // how fast steering recentres
-    public float edgeThreshold = 0.95f;        // when absolute pot is near full left/right
-    public float edgeSmoothSpeed = 5f;         // how quickly steering reaches edge value
+    public float steeringSensitivity = 3.0f;
+    public float steeringDecay = 2.0f;
+    public float edgeThreshold = 0.95f;
+    public float edgeSmoothSpeed = 5f;
     private float smoothedSteering = 0f;
 
-    private bool speedPopRunning = false; // Flag to prevent overlapping speed pops
+    private bool speedPopRunning = false;
 
     void Start()
     {
@@ -123,21 +124,16 @@ public class PlayerController_Arduino : MonoBehaviour
         rb.centerOfMass = new Vector3(0f, centerOfMassYOffset, 0f);
         rb.angularDamping = angularDragValue;
         rb.linearDamping = linearDragValue;
-
         rb.mass = 1500f;
 
-     
+        lastFixedPosition = rb.position;
 
-
-        // Initialize displayed speed to current velocity
-        lastDisplayedSpeed = rb.linearVelocity.magnitude * speedScale;
-        displayedSpeed = lastDisplayedSpeed;
+        displayedSpeed = 0f;
+        lastDisplayedSpeed = 0f;
 
         OpenPort();
 
-        if (countText != null)
-            countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
-
+        if (countText != null) countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
         if (winnerText != null) winnerText.gameObject.SetActive(false);
         if (gameOverText != null) gameOverText.gameObject.SetActive(false);
 
@@ -149,7 +145,6 @@ public class PlayerController_Arduino : MonoBehaviour
 
     void Update()
     {
-        // Retry COM port if closed
         if (!portOpen && Time.time - lastPortAttemptTime > portRetryInterval)
         {
             OpenPort();
@@ -158,42 +153,9 @@ public class PlayerController_Arduino : MonoBehaviour
 
         ReadArduino();
 
-        if (Input.GetButtonDown("Jump"))
-            rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
+        //if (Input.GetButtonDown("Jump"))
+        //    rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
-        // -----------------------
-        // SPEED CALCULATION & UI
-        // -----------------------
-        float rawSpeed = rb.linearVelocity.magnitude * speedScale;
-        float actualSpeed = (rawSpeed < 0.1f) ? 0f : rawSpeed; // Deadzone to ignore small jitter
-        displayedSpeed = Mathf.Lerp(displayedSpeed, actualSpeed, Time.deltaTime * speedSmoothFactor);
-
-        if (speedText != null)
-        {
-            speedText.text = $"Speed: {displayedSpeed:F0} mph";
-
-            // Trigger pop if speed changed significantly and pop is not running
-            if (!speedPopRunning && Mathf.Abs(actualSpeed - lastDisplayedSpeed) > speedPopThreshold)
-            {
-                StartCoroutine(PopText(speedText, speedPopScale, speedPopDuration, speedPopColor, () => speedPopRunning = false));
-                speedPopRunning = true;
-            }
-
-            lastDisplayedSpeed = actualSpeed;
-        }
-
-        // -----------------------
-        // SERIAL MESSAGE (Arduino)
-        // -----------------------
-        if (portOpen && port != null && port.IsOpen)
-        {
-            string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
-            port.WriteLine(msg);
-        }
-
-        // -----------------------
-        // Collectibles UI
-        // -----------------------
         if (countText != null && collectibles > lastCollectibleCount)
         {
             countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
@@ -203,9 +165,6 @@ public class PlayerController_Arduino : MonoBehaviour
                 StartCoroutine(PopText(countText, popScale, popDuration, popColor));
         }
 
-        // -----------------------
-        // Winner UI
-        // -----------------------
         if (!winnerShown && collectibles >= totalCollectibles)
         {
             winnerShown = true;
@@ -218,80 +177,52 @@ public class PlayerController_Arduino : MonoBehaviour
         }
     }
 
-    private Vector3 GetOriginalScale(TextMeshProUGUI text)
-    {
-        if (text == countText) return countTextOriginalScale;
-        if (text == speedText) return speedTextOriginalScale;
-        if (text == winnerText) return winnerTextOriginalScale;
-        if (text == gameOverText) return gameOverTextOriginalScale;
-
-        return Vector3.one; // fallback
-    }
-
-    private void HandleAutoRight()
-    {
-        Vector3 up = transform.up;
-        float tiltAngle = Vector3.Angle(up, Vector3.up);
-        float upDot = Vector3.Dot(up, Vector3.up);
-
-        bool isFlipped = upDot < flipDotThreshold;
-        bool isTooTilted = tiltAngle > tiltThreshold;
-
-        if (!isFlipped && !isTooTilted)
-            return;
-
-        if (onlyWhenAirborne && IsGrounded())
-            return;
-
-        float yaw = rb.rotation.eulerAngles.y;
-        Quaternion target = Quaternion.Euler(0f, yaw, 0f);
-
-        float step = restoreSpeed * Time.fixedDeltaTime;
-        Quaternion slerped = Quaternion.Slerp(rb.rotation, target, step);
-
-        float maxStep = maxCorrectionPerSecond * Time.fixedDeltaTime;
-        Quaternion finalRot = Quaternion.RotateTowards(rb.rotation, slerped, maxStep);
-
-        rb.MoveRotation(finalRot);
-
-        Vector3 localAngVel = transform.InverseTransformDirection(rb.angularVelocity);
-        localAngVel.x *= 0.2f;
-        localAngVel.z *= 0.2f;
-        rb.angularVelocity = transform.TransformDirection(localAngVel);
-    }
-
-    private bool IsGrounded()
-    {
-        float rayLength = 1.2f;
-        Vector3[] offsets = {
-        Vector3.zero,
-        new Vector3(0.5f, 0, 0.5f),
-        new Vector3(-0.5f, 0, 0.5f),
-        new Vector3(0.5f, 0, -0.5f),
-        new Vector3(-0.5f, 0, -0.5f)
-    };
-
-        foreach (var offset in offsets)
-        {
-            if (Physics.Raycast(transform.position + offset, Vector3.down, rayLength))
-                return true;
-        }
-
-        return false;
-    }
-
-
     void FixedUpdate()
     {
-        HandleMovement();
-
+        Vector3 gravityVelocity = Vector3.zero;
         if (!IsGrounded())
-            rb.AddForce(Vector3.down * extraGravityForce, ForceMode.Acceleration);
+            gravityVelocity = Vector3.down * extraGravityForce * Time.fixedDeltaTime;
 
+        HandleMovement(gravityVelocity);
         HandleAutoRight();
+
+        // -----------------------
+        // SPEED CALCULATION & UI (scaled for display only)
+        // -----------------------
+        Vector3 flatVel = new Vector3(rb.position.x - lastFixedPosition.x, 0f, rb.position.z - lastFixedPosition.z) / Time.fixedDeltaTime;
+        float actualSpeedMps = flatVel.magnitude * unityUnitsToMeters; // toy car speed
+
+        // Scale speed for full-size car display, with smoothing curve
+        float targetDisplaySpeed = actualSpeedMps * 2.23694f * displaySpeedMultiplier;
+
+        // Smoothly interpolate displayed speed
+        displayedSpeed = Mathf.Lerp(displayedSpeed, targetDisplaySpeed, Time.fixedDeltaTime * speedSmoothFactor);
+
+        // Update UI
+        if (speedText != null)
+        {
+            speedText.text = $"Speed: {displayedSpeed:F0} mph";
+
+            if (!speedPopRunning && Mathf.Abs(displayedSpeed - lastDisplayedSpeed) > speedPopThreshold)
+            {
+                StartCoroutine(PopText(speedText, speedPopScale, speedPopDuration, speedPopColor, () => speedPopRunning = false));
+                speedPopRunning = true;
+            }
+
+            lastDisplayedSpeed = displayedSpeed;
+        }
+
+
+        lastFixedPosition = rb.position;
+
+        if (portOpen && port != null && port.IsOpen)
+        {
+            string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
+            port.WriteLine(msg);
+        }
     }
 
-    void HandleMovement()
+    void HandleMovement(Vector3 extraVelocity = default)
     {
         float keyboardVertical = Input.GetAxis("Vertical");
         float moveVertical = keyboardVertical;
@@ -300,19 +231,15 @@ public class PlayerController_Arduino : MonoBehaviour
 
         float turnInput = portOpen ? steeringValue : Input.GetAxis("Horizontal");
 
-        // --- Apply non-linear arcade curve only when sending to Rigidbody ---
         if (useNonLinearCurve)
         {
             float t = turnInput;
-            float a = steeringCurveFactor; // 0 = linear, 1 = very arcade
+            float a = steeringCurveFactor;
             turnInput = t * (a + (1f - a) * t * t);
         }
 
         float appliedSpeed = speed;
 
-        // ----------------------
-        // Shift Boost
-        // ----------------------
         if (Input.GetKey(KeyCode.LeftShift) && boostTimer < boostDuration)
         {
             appliedSpeed *= boostMultiplier;
@@ -323,9 +250,6 @@ public class PlayerController_Arduino : MonoBehaviour
             boostTimer = 0f;
         }
 
-        // ----------------------
-        // Brake (C key or Arduino brake)
-        // ----------------------
         if (btnBrake || Input.GetKey(KeyCode.C))
         {
             speedMultiplier -= brakeDeceleration * Time.fixedDeltaTime;
@@ -338,34 +262,91 @@ public class PlayerController_Arduino : MonoBehaviour
 
         appliedSpeed *= speedMultiplier;
 
-        Vector3 movement = transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime;
+        Vector3 movement = transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime + extraVelocity;
+
         rb.MovePosition(rb.position + movement);
 
         float turnAmount = turnInput * rotationSpeed * Time.fixedDeltaTime;
         rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turnAmount, 0f));
     }
 
-
-    // -------------------------------------------------------
-    // Game Over
-    // -------------------------------------------------------
-    public void ShowGameOver()
+    private void HandleAutoRight()
     {
-        if (gameOverShown) return;
-        gameOverShown = true;
+        Vector3 up = transform.up;
+        float tiltAngle = Vector3.Angle(up, Vector3.up);
+        float upDot = Vector3.Dot(up, Vector3.up);
+        bool isFlipped = upDot < flipDotThreshold;
+        bool isTooTilted = tiltAngle > tiltThreshold;
+        if (!isFlipped && !isTooTilted) return;
+        if (onlyWhenAirborne && IsGrounded()) return;
 
-        if (gameOverText != null)
-        {
-            gameOverText.gameObject.SetActive(true);
-            StartCoroutine(PopText(gameOverText, gameOverPopScale, gameOverPopDuration, gameOverColor));
-        }
+        float yaw = rb.rotation.eulerAngles.y;
+        Quaternion target = Quaternion.Euler(0f, yaw, 0f);
+        float step = restoreSpeed * Time.fixedDeltaTime;
+        Quaternion slerped = Quaternion.Slerp(rb.rotation, target, step);
+        float maxStep = maxCorrectionPerSecond * Time.fixedDeltaTime;
+        Quaternion finalRot = Quaternion.RotateTowards(rb.rotation, slerped, maxStep);
+        rb.MoveRotation(finalRot);
 
-        StartCoroutine(FadeAndRestart(4f));
+        Vector3 localAngVel = transform.InverseTransformDirection(rb.angularVelocity);
+        localAngVel.x *= 0.2f;
+        localAngVel.z *= 0.2f;
+        rb.angularVelocity = transform.TransformDirection(localAngVel);
     }
 
-    // -------------------------------------------------------
-    // Null-safe Fade & Restart
-    // -------------------------------------------------------
+    private bool IsGrounded()
+    {
+        float rayLength = 1.2f;
+        Vector3[] offsets = {
+            Vector3.zero,
+            new Vector3(0.5f, 0, 0.5f),
+            new Vector3(-0.5f, 0, 0.5f),
+            new Vector3(0.5f, 0, -0.5f),
+            new Vector3(-0.5f, 0, -0.5f)
+        };
+        foreach (var offset in offsets)
+        {
+            if (Physics.Raycast(transform.position + offset, Vector3.down, rayLength))
+                return true;
+        }
+        return false;
+    }
+
+    private Vector3 GetOriginalScale(TextMeshProUGUI text)
+    {
+        if (text == countText) return countTextOriginalScale;
+        if (text == speedText) return speedTextOriginalScale;
+        if (text == winnerText) return winnerTextOriginalScale;
+        if (text == gameOverText) return gameOverTextOriginalScale;
+        return Vector3.one;
+    }
+
+    private IEnumerator PopText(TextMeshProUGUI textElement, float scale, float duration, Color color, System.Action onComplete = null)
+    {
+        if (textElement == null) yield break;
+        Vector3 originalScale = GetOriginalScale(textElement);
+        Vector3 poppedScale = originalScale * scale;
+        Color originalColor = textElement.color;
+
+        textElement.transform.localScale = poppedScale;
+        textElement.color = color;
+
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            float t = elapsed / duration;
+            textElement.transform.localScale = Vector3.Lerp(poppedScale, originalScale, t);
+            textElement.color = Color.Lerp(color, originalColor, t);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        textElement.transform.localScale = originalScale;
+        textElement.color = originalColor;
+
+        onComplete?.Invoke();
+    }
+
     private IEnumerator FadeAndRestart(float delay)
     {
         if (fadeImage != null)
@@ -373,67 +354,21 @@ public class PlayerController_Arduino : MonoBehaviour
             float elapsed = 0f;
             Color startColor = fadeImage.color;
             Color targetColor = new Color(0f, 0f, 0f, 1f);
-
             while (elapsed < fadeDuration)
             {
                 elapsed += Time.deltaTime;
                 fadeImage.color = Color.Lerp(startColor, targetColor, elapsed / fadeDuration);
                 yield return null;
             }
-
             fadeImage.color = targetColor;
         }
-
         yield return new WaitForSeconds(Mathf.Max(0f, delay - fadeDuration));
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
-    // -------------------------------------------------------
-    // Shared Pop Animation with optional callback
-    // -------------------------------------------------------
-    private IEnumerator PopText(TextMeshProUGUI textElement, float scale, float duration, Color color, System.Action onComplete = null)
-    {
-        if (textElement == null) yield break;
-
-        // Pick the correct stored original scale
-        Vector3 originalScale = GetOriginalScale(textElement);
-        Vector3 poppedScale = originalScale * scale;
-        Color originalColor = textElement.color;
-
-        // Apply pop
-        textElement.transform.localScale = poppedScale;
-        textElement.color = color;
-
-        float elapsed = 0f;
-
-        while (elapsed < duration)
-        {
-            float t = elapsed / duration;
-
-            textElement.transform.localScale = Vector3.Lerp(poppedScale, originalScale, t);
-            textElement.color = Color.Lerp(color, originalColor, t);
-
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
-
-        // Perfect restore
-        textElement.transform.localScale = originalScale;
-        textElement.color = originalColor;
-
-        onComplete?.Invoke();
-    }
-
-
-
-
-    // -------------------------------------------------------
-    // Arduino Input + COM Port
-    // -------------------------------------------------------
     void OpenPort()
     {
         if (portOpen) return;
-
         try
         {
             port = new SerialPort(portName, baudRate);
@@ -456,29 +391,23 @@ public class PlayerController_Arduino : MonoBehaviour
         {
             string line = port.ReadLine().Trim();
             string[] parts = line.Split(',');
-
             if (parts.Length != 2) return;
 
-            // --- Read potentiometer and map to -1 to 1 ---
             int raw = int.Parse(parts[0]);
             float normalized = Mathf.Clamp01(raw / 1023f);
             float absoluteSteer = Mathf.Lerp(-1f, 1f, normalized);
 
-            // Only apply steering if moving
             float speedThreshold = 0.1f;
-            if (rb.linearVelocity.magnitude * speedScale > speedThreshold)
+            if (rb.linearVelocity.magnitude * unityUnitsToMeters > speedThreshold)
             {
-                // Determine target based on edges
                 float target = 0f;
                 if (absoluteSteer >= edgeThreshold) target = 1f;
                 else if (absoluteSteer <= -edgeThreshold) target = -1f;
                 else target = absoluteSteer;
 
-                // Smoothly move towards target
                 float smoothSpeed = (Mathf.Abs(target) == 1f) ? edgeSmoothSpeed : steeringDecay;
                 smoothedSteering = Mathf.MoveTowards(smoothedSteering, target, smoothSpeed * Time.deltaTime);
 
-                // Apply delta to smoothed value for small movements
                 float delta = absoluteSteer - lastRawSteering;
                 lastRawSteering = absoluteSteer;
 
@@ -486,11 +415,9 @@ public class PlayerController_Arduino : MonoBehaviour
                     smoothedSteering += delta * steeringSensitivity * Time.deltaTime;
 
                 smoothedSteering = Mathf.Clamp(smoothedSteering, -1f, 1f);
-
                 steeringValue = smoothedSteering;
             }
 
-            // --- Read buttons ---
             int mask = int.Parse(parts[1]);
             btnForward = (mask & 0b00000001) != 0;
             btnBackward = (mask & 0b00000100) != 0;
@@ -499,8 +426,17 @@ public class PlayerController_Arduino : MonoBehaviour
         catch { }
     }
 
-
-
+    public void ShowGameOver()
+    {
+        if (gameOverShown) return;
+        gameOverShown = true;
+        if (gameOverText != null)
+        {
+            gameOverText.gameObject.SetActive(true);
+            StartCoroutine(PopText(gameOverText, gameOverPopScale, gameOverPopDuration, gameOverColor));
+        }
+        StartCoroutine(FadeAndRestart(4f));
+    }
 
     private void OnApplicationQuit()
     {
