@@ -7,9 +7,17 @@ public class DoorController : MonoBehaviour
 
     public float closeDelay = 10f;
 
+    [Header("Door Audio")]
+    public AudioSource audioSource;          // assign in inspector
+    public AudioClip[] doorOpenClips;        // array of 15 clips
+
     private void Start()
     {
         doorAnimator = GetComponent<Animator>();
+
+        // Safety check
+        if (audioSource == null)
+            audioSource = gameObject.AddComponent<AudioSource>();
     }
 
     private void OnTriggerEnter(Collider other)
@@ -27,7 +35,19 @@ public class DoorController : MonoBehaviour
         doorAnimator.ResetTrigger("Door_Close");  // prevent conflicts
         doorAnimator.SetTrigger("Door_Open");
 
+        // Play random door open sound
+        PlayRandomDoorSound();
+
         StartCoroutine(CloseDoorAfterDelay());
+    }
+
+    private void PlayRandomDoorSound()
+    {
+        if (doorOpenClips == null || doorOpenClips.Length == 0) return;
+
+        int index = Random.Range(0, doorOpenClips.Length);
+        audioSource.clip = doorOpenClips[index];
+        audioSource.Play();
     }
 
     private System.Collections.IEnumerator CloseDoorAfterDelay()

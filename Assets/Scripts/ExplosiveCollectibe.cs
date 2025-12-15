@@ -16,36 +16,24 @@ public class ExplosiveCollectible : MonoBehaviour
     [Header("Restart Delay")]
     public float restartDelay = 2f;
 
+    [Header("Sound Effects")]
+    public AudioSource gameOverSFX; // scene-persistent AudioSource
+
     private void OnTriggerEnter(Collider other)
     {
-        if (!other.CompareTag("Player"))
-            return;
+        if (!other.CompareTag("Player")) return;
 
-        // -----------------------------------------------------
-        // NEW: Trigger Game Over UI BEFORE disabling scripts
-        // -----------------------------------------------------
         PlayerController_Arduino pc = other.GetComponent<PlayerController_Arduino>();
-        if (pc != null)
-            pc.ShowGameOver();   // <- THIS is what makes the UI appear
-        // -----------------------------------------------------
 
-        // --- Spawn explosion ---
-        if (explosionEffect != null)
-            Instantiate(explosionEffect, other.transform.position, Quaternion.identity);
-
-        // --- Disable player scripts (animations, movement, etc.) ---
-        MonoBehaviour[] playerScripts = other.GetComponents<MonoBehaviour>();
-        foreach (MonoBehaviour s in playerScripts)
-            s.enabled = false;
-
-        // --- Create independent death camera ---
+        // --- Spawn death camera ---
         Camera originalCam = Camera.main;
+        Camera deathCam = null;
         if (originalCam != null)
         {
             GameObject deathCamObj = new GameObject("DeathCamera");
-            Camera deathCam = deathCamObj.AddComponent<Camera>();
+            deathCam = deathCamObj.AddComponent<Camera>();
+            deathCamObj.AddComponent<AudioListener>();
 
-            // Copy settings
             deathCam.transform.position = originalCam.transform.position;
             deathCam.transform.rotation = originalCam.transform.rotation;
             deathCam.fieldOfView = originalCam.fieldOfView;
@@ -54,15 +42,35 @@ public class ExplosiveCollectible : MonoBehaviour
             deathCam.nearClipPlane = originalCam.nearClipPlane;
             deathCam.farClipPlane = originalCam.farClipPlane;
 
-            // Turn off real camera
             originalCam.gameObject.SetActive(false);
-
-            // Cinematic camera movement
-            StartCoroutine(CinematicCamera(deathCam.transform, other.transform));
         }
 
-        // Restart scene after delay
-        StartCoroutine(Restart());
+        // --- Trigger Game Over via PlayerController (handles sound & UI) ---
+        if (pc != null)
+            pc.ShowGameOver();
+
+        // --- Disable player scripts ---
+        MonoBehaviour[] playerScripts = other.GetComponents<MonoBehaviour>();
+        foreach (MonoBehaviour s in playerScripts)
+            s.enabled = false;
+
+        // --- Spawn explosion ---
+        if (explosionEffect != null)
+            Instantiate(explosionEffect, other.transform.position, Quaternion.identity);
+
+        // --- Start cinematic ---
+        if (deathCam != null)
+            StartCoroutine(CinematicCamera(deathCam.transform, other.transform));
+
+        // --- Restart is handled by PlayerController ShowGameOver ---
+    }
+
+
+    private IEnumerator DisablePlayerScripts(GameObject player, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        foreach (MonoBehaviour s in player.GetComponents<MonoBehaviour>())
+            s.enabled = false;
     }
 
     private IEnumerator CinematicCamera(Transform cam, Transform player)
@@ -98,9 +106,9 @@ public class ExplosiveCollectible : MonoBehaviour
         }
     }
 
-    private IEnumerator Restart()
+    private IEnumerator Restart(float delay)
     {
-        yield return new WaitForSeconds(restartDelay);
+        yield return new WaitForSeconds(delay);
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }

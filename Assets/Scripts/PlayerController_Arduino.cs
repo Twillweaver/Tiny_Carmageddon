@@ -12,9 +12,6 @@ public class PlayerController_Arduino : MonoBehaviour
     public float speed = 5.0f;
     public float rotationSpeed = 200.0f;
 
-    //[Header("Jump")]
-    //public float jumpForce = 5.0f;
-
     [Header("Auto Righting")]
     public float tiltThreshold = 40f;
     public float restoreSpeed = 6f;
@@ -29,11 +26,9 @@ public class PlayerController_Arduino : MonoBehaviour
     public float extraGravityForce = 120f;
 
     [Header("Shift Boost")]
-    //public float boostMultiplier = 1.1f;
     public float boostDuration = 3f;
     public float boostCooldown = 10f;
-    public float boostAcceleration = 8f;   // m/s²-ish feel
-    //public float maxBoostSpeed = 18f;       // hard cap
+    public float boostAcceleration = 8f;
 
     [Header("Steering")]
     public float steeringSensitivity = 3.0f;
@@ -53,9 +48,9 @@ public class PlayerController_Arduino : MonoBehaviour
     public float portRetryInterval = 2f;
 
     [Header("Speed Display Scaling")]
-    public float unityUnitsToMeters = 0.1f; // real toy car scale
+    public float unityUnitsToMeters = 0.1f;
     public float speedSmoothFactor = 5f;
-    public float displaySpeedMultiplier = 12f; // scale for full-size car UI
+    public float displaySpeedMultiplier = 12f;
 
     [Header("Collectibles")]
     public int collectibles = 0;
@@ -76,9 +71,8 @@ public class PlayerController_Arduino : MonoBehaviour
     public Color boostCooldownColor = Color.red;
 
     [Header("Boost Camera")]
-    public Transform cameraTransform;      
     public Vector3 normalCameraOffset = new Vector3(0f, 2f, -5f);
-    public Vector3 boostCameraOffset = new Vector3(0f, 2f, -7f);  // further back during boost
+    public Vector3 boostCameraOffset = new Vector3(0f, 2f, -7f);
     public float cameraLerpSpeed = 5f;
 
     [Header("Winner Text")]
@@ -102,9 +96,13 @@ public class PlayerController_Arduino : MonoBehaviour
     public float popDuration = 0.2f;
     public Color popColor = Color.yellow;
 
-    // -------------------------------------------------------
+    [Header("Sound Effects")]
+    public AudioSource collectibleSFX;
+    public AudioSource winSFX;
+    public AudioSource boostSFX;
+    public AudioSource gameOverSFX;
+
     // Private fields
-    // -------------------------------------------------------
     private Rigidbody rb;
     private SerialPort port;
     private bool portOpen = false;
@@ -128,18 +126,16 @@ public class PlayerController_Arduino : MonoBehaviour
     private Vector3 lastFixedPosition;
 
     private float speedMultiplier = 1f;
-    private float boostTimer = 0f;       // how long boost has been used
+    private float boostTimer = 0f;
     private float boostCooldownTimer = 0f;
     private bool isBoosting = false;
 
     private Vector3 currentCameraOffset;
-
+    private Transform cameraTransform;
     private Vector3 originalCameraLocalPos;
 
     private float lastRawSteering = 0f;
-    
     private float smoothedSteering = 0f;
-
     private bool speedPopRunning = false;
 
     void Start()
@@ -151,18 +147,14 @@ public class PlayerController_Arduino : MonoBehaviour
         rb.mass = 1500f;
 
         lastFixedPosition = rb.position;
-        displayedSpeed = 0f;
-        lastDisplayedSpeed = 0f;
 
-        // --- Auto-assign camera ---
+        // Camera setup
         if (Camera.main != null)
         {
             cameraTransform = Camera.main.transform;
-            originalCameraLocalPos = cameraTransform.localPosition; // store its starting local position
+            originalCameraLocalPos = cameraTransform.localPosition;
         }
-
-        currentCameraOffset = Vector3.zero; // boost offset will be additive
-
+        currentCameraOffset = Vector3.zero;
 
         OpenPort();
 
@@ -178,32 +170,62 @@ public class PlayerController_Arduino : MonoBehaviour
 
     void Update()
     {
+        // Retry opening COM port
         if (!portOpen && Time.time - lastPortAttemptTime > portRetryInterval)
         {
             OpenPort();
             lastPortAttemptTime = Time.time;
         }
 
+        // Read Arduino input
         ReadArduino();
 
+        // Collectibles UI update and sound
         if (countText != null && collectibles > lastCollectibleCount)
         {
             countText.text = $"Collectibles: {collectibles} / {totalCollectibles}";
             lastCollectibleCount = collectibles;
 
+            // Pop animation
             if (collectibles > 0)
                 StartCoroutine(PopText(countText, popScale, popDuration, popColor));
+
+            // Play collectible sound
+            if (collectibleSFX != null)
+                collectibleSFX.Play();
         }
 
+
+        // Winner logic
         if (!winnerShown && collectibles >= totalCollectibles)
         {
             winnerShown = true;
+
             if (winnerText != null)
             {
                 winnerText.gameObject.SetActive(true);
                 StartCoroutine(PopText(winnerText, winnerPopScale, winnerPopDuration, winnerColor));
             }
+
+            // Play win sound
+            if (winSFX != null)
+                winSFX.Play();
+
+            MusicManager.Instance.FadeOut(2f);  // or whatever duration you want
+
+
             StartCoroutine(FadeAndRestart(4f));
+        }
+
+
+        // Game Over logic
+        if (!gameOverShown)
+        {
+            float upDot = Vector3.Dot(transform.up, Vector3.up);
+            if (upDot < flipDotThreshold)
+            {
+                ShowGameOver();
+            }
         }
     }
 
@@ -216,54 +238,43 @@ public class PlayerController_Arduino : MonoBehaviour
         HandleMovement(gravityVelocity);
         HandleAutoRight();
 
-        // -----------------------
-        // SPEED CALCULATION & UI (scaled for display only)
-        // -----------------------
+        // Speed calculation
         Vector3 flatVel = new Vector3(rb.position.x - lastFixedPosition.x, 0f, rb.position.z - lastFixedPosition.z) / Time.fixedDeltaTime;
-        float actualSpeedMps = flatVel.magnitude * unityUnitsToMeters; // toy car speed
+        float actualSpeedMps = flatVel.magnitude * unityUnitsToMeters;
 
-        // Scale speed for full-size car display, with smoothing
-        float targetDisplaySpeed = actualSpeedMps * 2.23694f * displaySpeedMultiplier; // m/s -> mph
-
-        // Smoothly interpolate displayed speed
+        float targetDisplaySpeed = actualSpeedMps * 2.23694f * displaySpeedMultiplier;
         displayedSpeed = Mathf.Lerp(displayedSpeed, targetDisplaySpeed, Time.fixedDeltaTime * speedSmoothFactor);
 
-        // Update UI
+        // Speed UI
         if (speedText != null)
         {
             speedText.text = $"Speed: {displayedSpeed:F0} mph";
-
             if (!speedPopRunning && Mathf.Abs(displayedSpeed - lastDisplayedSpeed) > speedPopThreshold)
             {
                 StartCoroutine(PopText(speedText, speedPopScale, speedPopDuration, speedPopColor, () => speedPopRunning = false));
                 speedPopRunning = true;
             }
-
             lastDisplayedSpeed = displayedSpeed;
         }
 
         lastFixedPosition = rb.position;
 
+        // Send speed & collectibles to Arduino
         if (portOpen && port != null && port.IsOpen)
         {
             string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
             port.WriteLine(msg);
         }
 
-        // update boost status UI
+        // Boost UI
         UpdateBoostUI();
 
-        // boost camera
+        // Boost camera
         UpdateCameraPosition();
-
-
     }
 
     void HandleMovement(Vector3 extraVelocity = default)
     {
-        // -----------------------
-        // INPUT
-        // -----------------------
         float moveVertical = Input.GetAxis("Vertical");
         if (btnForward) moveVertical = 1f;
         if (btnBackward) moveVertical = -1f;
@@ -277,27 +288,21 @@ public class PlayerController_Arduino : MonoBehaviour
             turnInput = t * (a + (1f - a) * t * t);
         }
 
-        // -----------------------
-        // BASE SPEED
-        // -----------------------
         float appliedSpeed = speed;
 
-        // -----------------------
-        // BOOST STATE MACHINE
-        // -----------------------
-      
+        // Boost logic
         float boostOffset = 0f;
-
-        // Start boost
-        if (!isBoosting &&
-            boostCooldownTimer <= 0f &&
-            Input.GetKey(KeyCode.LeftShift))
+        if (!isBoosting && boostCooldownTimer <= 0f && Input.GetKey(KeyCode.LeftShift))
         {
             isBoosting = true;
             boostTimer = 0f;
+
+            // Play boost sound
+            if (boostSFX != null)
+                boostSFX.Play();
         }
 
-        // While boosting
+
         if (isBoosting)
         {
             boostTimer += Time.fixedDeltaTime;
@@ -310,18 +315,13 @@ public class PlayerController_Arduino : MonoBehaviour
                 boostCooldownTimer = boostCooldown;
             }
         }
-        // Cooldown ticking
         else if (boostCooldownTimer > 0f)
         {
             boostCooldownTimer -= Time.fixedDeltaTime;
             boostCooldownTimer = Mathf.Max(0f, boostCooldownTimer);
         }
 
-
-
-        // -----------------------
-        // BRAKE
-        // -----------------------
+        // Brake
         if (btnBrake || Input.GetKey(KeyCode.C))
         {
             speedMultiplier -= brakeDeceleration * Time.fixedDeltaTime;
@@ -331,45 +331,22 @@ public class PlayerController_Arduino : MonoBehaviour
         {
             speedMultiplier = 1f;
         }
-
         appliedSpeed *= speedMultiplier;
 
-        // -----------------------
-        // MOVE
-        // -----------------------
-        // float finalSpeed = appliedSpeed + boostOffset;
-
-        float throttle = Mathf.Clamp01(moveVertical); // only forward throttle contributes
-
-        float scaledBoost = boostOffset * throttle;   // Option B: scale boost by throttle
+        float throttle = Mathf.Clamp01(moveVertical);
+        float scaledBoost = boostOffset * throttle;
 
         Vector3 movement;
-
-        // no boost while reversing
         if (moveVertical > 0f)
-        {
-            movement =
-                transform.forward * (moveVertical * appliedSpeed + scaledBoost) * Time.fixedDeltaTime
-                + extraVelocity;
-        }
+            movement = transform.forward * (moveVertical * appliedSpeed + scaledBoost) * Time.fixedDeltaTime + extraVelocity;
         else
-        {
-            movement =
-                transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime
-                + extraVelocity;
-        }
+            movement = transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime + extraVelocity;
 
         rb.MovePosition(rb.position + movement);
 
-
-        // -----------------------
-        // ROTATE
-        // -----------------------
         float turnAmount = turnInput * rotationSpeed * Time.fixedDeltaTime;
         rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turnAmount, 0f));
     }
-
-
 
     private void HandleAutoRight()
     {
@@ -399,19 +376,11 @@ public class PlayerController_Arduino : MonoBehaviour
     private bool IsGrounded()
     {
         float rayLength = 1.2f;
-        Vector3[] offsets = {
-            Vector3.zero,
-            new Vector3(0.5f, 0, 0.5f),
-            new Vector3(-0.5f, 0, 0.5f),
-            new Vector3(0.5f, 0, -0.5f),
-            new Vector3(-0.5f, 0, -0.5f)
-        };
-
+        Vector3[] offsets = { Vector3.zero, new Vector3(0.5f, 0, 0.5f), new Vector3(-0.5f, 0, 0.5f),
+                              new Vector3(0.5f, 0, -0.5f), new Vector3(-0.5f, 0, -0.5f) };
         foreach (var offset in offsets)
-        {
             if (Physics.Raycast(transform.position + offset, Vector3.down, rayLength))
                 return true;
-        }
         return false;
     }
 
@@ -447,16 +416,12 @@ public class PlayerController_Arduino : MonoBehaviour
 
         textElement.transform.localScale = originalScale;
         textElement.color = originalColor;
-
         onComplete?.Invoke();
     }
 
-    // boost UI helper
-
-    void UpdateBoostUI()
+    private void UpdateBoostUI()
     {
-        if (boostStatusText == null)
-            return;
+        if (boostStatusText == null) return;
 
         if (isBoosting)
         {
@@ -475,24 +440,14 @@ public class PlayerController_Arduino : MonoBehaviour
         }
     }
 
-    void UpdateCameraPosition()
+    private void UpdateCameraPosition()
     {
         if (cameraTransform == null) return;
 
-        // Compute a subtle boost offset (e.g., small z shift)
         Vector3 boostOffsetLocal = isBoosting ? boostCameraOffset * 0.1f : Vector3.zero;
-        // scale down to be subtle
-
-        // Smoothly interpolate towards that offset
         currentCameraOffset = Vector3.Lerp(currentCameraOffset, boostOffsetLocal, Time.deltaTime * cameraLerpSpeed);
-
-        // Apply additive offset to original camera position
         cameraTransform.localPosition = originalCameraLocalPos + currentCameraOffset;
     }
-
-
-
-
 
     private IEnumerator FadeAndRestart(float delay)
     {
@@ -513,6 +468,39 @@ public class PlayerController_Arduino : MonoBehaviour
         yield return new WaitForSeconds(Mathf.Max(0f, delay - fadeDuration));
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
+
+
+
+    public void ShowGameOver()
+    {
+        if (gameOverShown) return;
+        gameOverShown = true;
+
+        // Activate and animate Game Over UI
+        if (gameOverText != null)
+        {
+            gameOverText.gameObject.SetActive(true);
+            StartCoroutine(PopText(gameOverText, gameOverPopScale, gameOverPopDuration, gameOverColor));
+        }
+
+        // Fade out music
+        if (MusicManager.Instance != null)
+            MusicManager.Instance.FadeOut(2f);
+
+        // Play Game Over sound using the existing AudioSource
+        float clipLength = 0f;
+        if (gameOverSFX != null && gameOverSFX.clip != null)
+        {
+            gameOverSFX.volume = 1f; // ensure volume is audible
+            gameOverSFX.spatialBlend = 0f; // 2D sound
+            gameOverSFX.Play();
+            clipLength = gameOverSFX.clip.length;
+        }
+
+        // Restart scene after the sound finishes, or at least 4 seconds
+        StartCoroutine(FadeAndRestart(Mathf.Max(4f, clipLength)));
+    }
+
 
     void OpenPort()
     {
@@ -573,20 +561,6 @@ public class PlayerController_Arduino : MonoBehaviour
             btnBrake = (mask & 0b00010000) != 0;
         }
         catch { }
-    }
-
-    public void ShowGameOver()
-    {
-        if (gameOverShown) return;
-
-        gameOverShown = true;
-        if (gameOverText != null)
-        {
-            gameOverText.gameObject.SetActive(true);
-            StartCoroutine(PopText(gameOverText, gameOverPopScale, gameOverPopDuration, gameOverColor));
-        }
-
-        StartCoroutine(FadeAndRestart(4f));
     }
 
     private void OnApplicationQuit()
