@@ -29,8 +29,17 @@ public class PlayerController_Arduino : MonoBehaviour
     public float extraGravityForce = 120f;
 
     [Header("Shift Boost")]
-    public float boostMultiplier = 1.1f;
+    //public float boostMultiplier = 1.1f;
     public float boostDuration = 3f;
+    public float boostCooldown = 10f;
+    public float boostAcceleration = 8f;   // m/s²-ish feel
+    //public float maxBoostSpeed = 18f;       // hard cap
+
+    [Header("Steering")]
+    public float steeringSensitivity = 3.0f;
+    public float steeringDecay = 2.0f;
+    public float edgeThreshold = 0.95f;
+    public float edgeSmoothSpeed = 5f;
 
     [Header("Brake Settings")]
     public float brakeDeceleration = 1f;
@@ -59,6 +68,18 @@ public class PlayerController_Arduino : MonoBehaviour
     public float speedPopScale = 1.5f;
     public float speedPopDuration = 0.2f;
     public Color speedPopColor = Color.cyan;
+
+    [Header("Boost UI")]
+    public TextMeshProUGUI boostStatusText;
+    public Color boostReadyColor = Color.green;
+    public Color boostActiveColor = Color.cyan;
+    public Color boostCooldownColor = Color.red;
+
+    [Header("Boost Camera")]
+    public Transform cameraTransform;      
+    public Vector3 normalCameraOffset = new Vector3(0f, 2f, -5f);
+    public Vector3 boostCameraOffset = new Vector3(0f, 2f, -7f);  // further back during boost
+    public float cameraLerpSpeed = 5f;
 
     [Header("Winner Text")]
     public TextMeshProUGUI winnerText;
@@ -106,14 +127,17 @@ public class PlayerController_Arduino : MonoBehaviour
     private Vector3 gameOverTextOriginalScale;
     private Vector3 lastFixedPosition;
 
-    private float boostTimer = 0f;
     private float speedMultiplier = 1f;
+    private float boostTimer = 0f;       // how long boost has been used
+    private float boostCooldownTimer = 0f;
+    private bool isBoosting = false;
+
+    private Vector3 currentCameraOffset;
+
+    private Vector3 originalCameraLocalPos;
 
     private float lastRawSteering = 0f;
-    public float steeringSensitivity = 3.0f;
-    public float steeringDecay = 2.0f;
-    public float edgeThreshold = 0.95f;
-    public float edgeSmoothSpeed = 5f;
+    
     private float smoothedSteering = 0f;
 
     private bool speedPopRunning = false;
@@ -127,9 +151,18 @@ public class PlayerController_Arduino : MonoBehaviour
         rb.mass = 1500f;
 
         lastFixedPosition = rb.position;
-
         displayedSpeed = 0f;
         lastDisplayedSpeed = 0f;
+
+        // --- Auto-assign camera ---
+        if (Camera.main != null)
+        {
+            cameraTransform = Camera.main.transform;
+            originalCameraLocalPos = cameraTransform.localPosition; // store its starting local position
+        }
+
+        currentCameraOffset = Vector3.zero; // boost offset will be additive
+
 
         OpenPort();
 
@@ -152,9 +185,6 @@ public class PlayerController_Arduino : MonoBehaviour
         }
 
         ReadArduino();
-
-        //if (Input.GetButtonDown("Jump"))
-        //    rb.AddForce(Vector3.up * jumpForce, ForceMode.VelocityChange);
 
         if (countText != null && collectibles > lastCollectibleCount)
         {
@@ -192,8 +222,8 @@ public class PlayerController_Arduino : MonoBehaviour
         Vector3 flatVel = new Vector3(rb.position.x - lastFixedPosition.x, 0f, rb.position.z - lastFixedPosition.z) / Time.fixedDeltaTime;
         float actualSpeedMps = flatVel.magnitude * unityUnitsToMeters; // toy car speed
 
-        // Scale speed for full-size car display, with smoothing curve
-        float targetDisplaySpeed = actualSpeedMps * 2.23694f * displaySpeedMultiplier;
+        // Scale speed for full-size car display, with smoothing
+        float targetDisplaySpeed = actualSpeedMps * 2.23694f * displaySpeedMultiplier; // m/s -> mph
 
         // Smoothly interpolate displayed speed
         displayedSpeed = Mathf.Lerp(displayedSpeed, targetDisplaySpeed, Time.fixedDeltaTime * speedSmoothFactor);
@@ -212,7 +242,6 @@ public class PlayerController_Arduino : MonoBehaviour
             lastDisplayedSpeed = displayedSpeed;
         }
 
-
         lastFixedPosition = rb.position;
 
         if (portOpen && port != null && port.IsOpen)
@@ -220,12 +249,22 @@ public class PlayerController_Arduino : MonoBehaviour
             string msg = displayedSpeed.ToString("F1") + "," + collectibles.ToString();
             port.WriteLine(msg);
         }
+
+        // update boost status UI
+        UpdateBoostUI();
+
+        // boost camera
+        UpdateCameraPosition();
+
+
     }
 
     void HandleMovement(Vector3 extraVelocity = default)
     {
-        float keyboardVertical = Input.GetAxis("Vertical");
-        float moveVertical = keyboardVertical;
+        // -----------------------
+        // INPUT
+        // -----------------------
+        float moveVertical = Input.GetAxis("Vertical");
         if (btnForward) moveVertical = 1f;
         if (btnBackward) moveVertical = -1f;
 
@@ -238,18 +277,51 @@ public class PlayerController_Arduino : MonoBehaviour
             turnInput = t * (a + (1f - a) * t * t);
         }
 
+        // -----------------------
+        // BASE SPEED
+        // -----------------------
         float appliedSpeed = speed;
 
-        if (Input.GetKey(KeyCode.LeftShift) && boostTimer < boostDuration)
+        // -----------------------
+        // BOOST STATE MACHINE
+        // -----------------------
+      
+        float boostOffset = 0f;
+
+        // Start boost
+        if (!isBoosting &&
+            boostCooldownTimer <= 0f &&
+            Input.GetKey(KeyCode.LeftShift))
         {
-            appliedSpeed *= boostMultiplier;
-            boostTimer += Time.fixedDeltaTime;
-        }
-        else if (!Input.GetKey(KeyCode.LeftShift))
-        {
+            isBoosting = true;
             boostTimer = 0f;
         }
 
+        // While boosting
+        if (isBoosting)
+        {
+            boostTimer += Time.fixedDeltaTime;
+            boostOffset = boostAcceleration;
+
+            if (boostTimer >= boostDuration)
+            {
+                isBoosting = false;
+                boostTimer = 0f;
+                boostCooldownTimer = boostCooldown;
+            }
+        }
+        // Cooldown ticking
+        else if (boostCooldownTimer > 0f)
+        {
+            boostCooldownTimer -= Time.fixedDeltaTime;
+            boostCooldownTimer = Mathf.Max(0f, boostCooldownTimer);
+        }
+
+
+
+        // -----------------------
+        // BRAKE
+        // -----------------------
         if (btnBrake || Input.GetKey(KeyCode.C))
         {
             speedMultiplier -= brakeDeceleration * Time.fixedDeltaTime;
@@ -262,13 +334,42 @@ public class PlayerController_Arduino : MonoBehaviour
 
         appliedSpeed *= speedMultiplier;
 
-        Vector3 movement = transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime + extraVelocity;
+        // -----------------------
+        // MOVE
+        // -----------------------
+        // float finalSpeed = appliedSpeed + boostOffset;
+
+        float throttle = Mathf.Clamp01(moveVertical); // only forward throttle contributes
+
+        float scaledBoost = boostOffset * throttle;   // Option B: scale boost by throttle
+
+        Vector3 movement;
+
+        // no boost while reversing
+        if (moveVertical > 0f)
+        {
+            movement =
+                transform.forward * (moveVertical * appliedSpeed + scaledBoost) * Time.fixedDeltaTime
+                + extraVelocity;
+        }
+        else
+        {
+            movement =
+                transform.forward * moveVertical * appliedSpeed * Time.fixedDeltaTime
+                + extraVelocity;
+        }
 
         rb.MovePosition(rb.position + movement);
 
+
+        // -----------------------
+        // ROTATE
+        // -----------------------
         float turnAmount = turnInput * rotationSpeed * Time.fixedDeltaTime;
         rb.MoveRotation(rb.rotation * Quaternion.Euler(0f, turnAmount, 0f));
     }
+
+
 
     private void HandleAutoRight()
     {
@@ -277,6 +378,7 @@ public class PlayerController_Arduino : MonoBehaviour
         float upDot = Vector3.Dot(up, Vector3.up);
         bool isFlipped = upDot < flipDotThreshold;
         bool isTooTilted = tiltAngle > tiltThreshold;
+
         if (!isFlipped && !isTooTilted) return;
         if (onlyWhenAirborne && IsGrounded()) return;
 
@@ -304,6 +406,7 @@ public class PlayerController_Arduino : MonoBehaviour
             new Vector3(0.5f, 0, -0.5f),
             new Vector3(-0.5f, 0, -0.5f)
         };
+
         foreach (var offset in offsets)
         {
             if (Physics.Raycast(transform.position + offset, Vector3.down, rayLength))
@@ -324,6 +427,7 @@ public class PlayerController_Arduino : MonoBehaviour
     private IEnumerator PopText(TextMeshProUGUI textElement, float scale, float duration, Color color, System.Action onComplete = null)
     {
         if (textElement == null) yield break;
+
         Vector3 originalScale = GetOriginalScale(textElement);
         Vector3 poppedScale = originalScale * scale;
         Color originalColor = textElement.color;
@@ -347,6 +451,49 @@ public class PlayerController_Arduino : MonoBehaviour
         onComplete?.Invoke();
     }
 
+    // boost UI helper
+
+    void UpdateBoostUI()
+    {
+        if (boostStatusText == null)
+            return;
+
+        if (isBoosting)
+        {
+            boostStatusText.text = "PEDAL TO THE METAL!";
+            boostStatusText.color = boostActiveColor;
+        }
+        else if (boostCooldownTimer > 0f)
+        {
+            boostStatusText.text = $"BOOST READY IN: {boostCooldownTimer:F0}s";
+            boostStatusText.color = boostCooldownColor;
+        }
+        else
+        {
+            boostStatusText.text = "BOOST READY!";
+            boostStatusText.color = boostReadyColor;
+        }
+    }
+
+    void UpdateCameraPosition()
+    {
+        if (cameraTransform == null) return;
+
+        // Compute a subtle boost offset (e.g., small z shift)
+        Vector3 boostOffsetLocal = isBoosting ? boostCameraOffset * 0.1f : Vector3.zero;
+        // scale down to be subtle
+
+        // Smoothly interpolate towards that offset
+        currentCameraOffset = Vector3.Lerp(currentCameraOffset, boostOffsetLocal, Time.deltaTime * cameraLerpSpeed);
+
+        // Apply additive offset to original camera position
+        cameraTransform.localPosition = originalCameraLocalPos + currentCameraOffset;
+    }
+
+
+
+
+
     private IEnumerator FadeAndRestart(float delay)
     {
         if (fadeImage != null)
@@ -362,6 +509,7 @@ public class PlayerController_Arduino : MonoBehaviour
             }
             fadeImage.color = targetColor;
         }
+
         yield return new WaitForSeconds(Mathf.Max(0f, delay - fadeDuration));
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
@@ -369,6 +517,7 @@ public class PlayerController_Arduino : MonoBehaviour
     void OpenPort()
     {
         if (portOpen) return;
+
         try
         {
             port = new SerialPort(portName, baudRate);
@@ -429,12 +578,14 @@ public class PlayerController_Arduino : MonoBehaviour
     public void ShowGameOver()
     {
         if (gameOverShown) return;
+
         gameOverShown = true;
         if (gameOverText != null)
         {
             gameOverText.gameObject.SetActive(true);
             StartCoroutine(PopText(gameOverText, gameOverPopScale, gameOverPopDuration, gameOverColor));
         }
+
         StartCoroutine(FadeAndRestart(4f));
     }
 
