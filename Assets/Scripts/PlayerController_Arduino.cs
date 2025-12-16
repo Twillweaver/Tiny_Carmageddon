@@ -101,6 +101,11 @@ public class PlayerController_Arduino : MonoBehaviour
     public AudioSource winSFX;
     public AudioSource boostSFX;
     public AudioSource gameOverSFX;
+    public AudioSource engineAudioSource;  // assign in inspector or auto-add
+    public AudioClip engineClip;           // looping engine sound
+    [Range(0f, 1f)]
+    public float engineVolume = 0.7f;
+
 
     // Private fields
     private Rigidbody rb;
@@ -148,6 +153,24 @@ public class PlayerController_Arduino : MonoBehaviour
 
         lastFixedPosition = rb.position;
 
+        if (engineAudioSource == null)
+            engineAudioSource = gameObject.AddComponent<AudioSource>();
+
+        engineAudioSource.clip = engineClip;
+        engineAudioSource.loop = true;
+        engineAudioSource.playOnAwake = false;
+        engineAudioSource.spatialBlend = 0f; // 2D
+        engineAudioSource.volume = engineVolume;
+
+        if (engineClip != null)
+        {
+            engineAudioSource.pitch = 0.9f;   // idle pitch
+            engineAudioSource.volume = engineVolume * 0.6f; // idle volume
+            engineAudioSource.Play();
+        }
+
+
+
         // Camera setup
         if (Camera.main != null)
         {
@@ -179,6 +202,37 @@ public class PlayerController_Arduino : MonoBehaviour
 
         // Read Arduino input
         ReadArduino();
+
+        bool throttleInput =
+        btnForward ||
+        btnBackward ||
+        Input.GetAxis("Vertical") != 0f ||
+        isBoosting;
+
+        if (engineAudioSource != null && engineClip != null)
+        {
+            float targetPitch;
+            float targetVolume;
+
+            if (throttleInput)
+            {
+                targetPitch = isBoosting ? 1.4f : 1.15f;
+                targetVolume = engineVolume;
+            }
+            else
+            {
+                // Idle
+                targetPitch = 0.9f;
+                targetVolume = engineVolume * 0.6f;
+            }
+
+            engineAudioSource.pitch =
+                Mathf.Lerp(engineAudioSource.pitch, targetPitch, Time.deltaTime * 5f);
+
+            engineAudioSource.volume =
+                Mathf.Lerp(engineAudioSource.volume, targetVolume, Time.deltaTime * 5f);
+        }
+
 
         // Collectibles UI update and sound
         if (countText != null && collectibles > lastCollectibleCount)
