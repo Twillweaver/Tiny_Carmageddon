@@ -108,7 +108,8 @@ public class PlayerController_Arduino : MonoBehaviour
 
 
     // Private fields
-    private Rigidbody rb;
+    //private Rigidbody rb;
+    private UnityEngine.Rigidbody rb;
     private SerialPort port;
     private bool portOpen = false;
     private float steeringValue = 0f;
@@ -214,24 +215,30 @@ public class PlayerController_Arduino : MonoBehaviour
             float targetPitch;
             float targetVolume;
 
-            if (throttleInput)
+            if (isBoosting)
             {
-                targetPitch = isBoosting ? 1.4f : 1.15f;
-                targetVolume = engineVolume;
+                targetPitch = 1.35f;
+                targetVolume = engineVolume * 0.9f;
+            }
+            else if (throttleInput)
+            {
+                targetPitch = 1.15f;
+                targetVolume = engineVolume * 0.7f;
             }
             else
             {
                 // Idle
-                targetPitch = 0.9f;
-                targetVolume = engineVolume * 0.6f;
+                targetPitch = 0.85f;
+                targetVolume = engineVolume * 0.4f;
             }
 
             engineAudioSource.pitch =
-                Mathf.Lerp(engineAudioSource.pitch, targetPitch, Time.deltaTime * 5f);
+                Mathf.Lerp(engineAudioSource.pitch, targetPitch, Time.deltaTime * 4f);
 
             engineAudioSource.volume =
-                Mathf.Lerp(engineAudioSource.volume, targetVolume, Time.deltaTime * 5f);
+                Mathf.Lerp(engineAudioSource.volume, targetVolume, Time.deltaTime * 4f);
         }
+
 
 
         // Collectibles UI update and sound
