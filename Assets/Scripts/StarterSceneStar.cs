@@ -41,7 +41,7 @@ public class StarterSceneStar : MonoBehaviour
                 Instantiate(particleEffectPrefab, transform.position, Quaternion.identity);
             }
 
-            // Destroy the star
+            // Destroy the game object
             Destroy(gameObject);
 
         }

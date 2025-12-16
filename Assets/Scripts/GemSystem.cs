@@ -28,13 +28,15 @@ public class GemSystem : MonoBehaviour
 
     void Start()
     {
-       
+        // Nothing needed in Start for now
     }
 
+    // Called when a gem is collected by the player
     public void OnGemCollected()
     {
         collectedSinceLastSpawn++;
 
+        // Spawn a new gem after the required number of collections
         if (collectedSinceLastSpawn >= gemsPerSpawnTrigger)
         {
             collectedSinceLastSpawn = 0;
@@ -42,11 +44,12 @@ public class GemSystem : MonoBehaviour
         }
     }
 
+    // Spawns a new gem at a valid location
     public void RespawnGem()
     {
         if (TryGetValidSpawnPoint(out Vector3 spawnPoint))
         {
-            Transform newGem = Instantiate(gemPrefab);
+            Transform newGem = Instantiate(gemPrefab); // create new gem
             newGem.position = spawnPoint;
 
             // -------------------------------------------------------------
@@ -55,7 +58,7 @@ public class GemSystem : MonoBehaviour
             if (matchReferenceHeight && referenceGem != null)
             {
                 Vector3 pos = newGem.position;
-                pos.y = referenceGem.position.y;
+                pos.y = referenceGem.position.y; // match y position
                 newGem.position = pos;
             }
 
@@ -68,7 +71,7 @@ public class GemSystem : MonoBehaviour
             }
             else
             {
-                newGem.rotation = Quaternion.identity;
+                newGem.rotation = Quaternion.identity; // default rotation
             }
 
             // -------------------------------------------------------------
@@ -82,13 +85,13 @@ public class GemSystem : MonoBehaviour
                 {
                     Component existing = newGem.GetComponent(rotateType);
 
-                    // If the spawned prefab has no rotate script, add one.
+                    // If the spawned prefab has no rotate script, add one
                     if (existing == null)
                     {
                         existing = newGem.gameObject.AddComponent(rotateType);
                     }
 
-                    // Try copying values from the reference gem's script.
+                    // Try copying values from the reference gem's script if it exists
                     if (referenceGem != null)
                     {
                         Component referenceComp = referenceGem.GetComponent(rotateType);
@@ -112,6 +115,7 @@ public class GemSystem : MonoBehaviour
         }
     }
 
+    // Attempts to find a valid spawn point within the spawn zones
     private bool TryGetValidSpawnPoint(out Vector3 point)
     {
         point = Vector3.zero;
@@ -122,32 +126,34 @@ public class GemSystem : MonoBehaviour
             return false;
         }
 
+        // Pick a random spawn zone
         for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
             BoxCollider zone = spawnZones[Random.Range(0, spawnZones.Length)];
             Bounds b = zone.bounds;
 
+            // Random XZ position within the zone
             float x = Random.Range(b.min.x, b.max.x);
             float z = Random.Range(b.min.z, b.max.z);
 
             Vector3 origin = new Vector3(x, b.max.y + raycastHeight, z);
 
+            // Raycast downward to find the floor
             if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 20f, floorMask))
             {
                 Vector3 result = hit.point + Vector3.up * safeAboveGround;
 
-                // If height matching is on, the spawn height will be overridden later.
+                // If height matching is on, the spawn height will be overridden later
                 point = result;
                 return true;
             }
         }
 
+        // no valid point found
         return false;
     }
-
-    // -------------------------------------------------------------
+    
     // Copies serializable fields from one component to another
-    // -------------------------------------------------------------
     private void CopyComponentValues(Component source, Component target)
     {
         var type = source.GetType();
@@ -162,6 +168,7 @@ public class GemSystem : MonoBehaviour
         }
     }
 
+    // Draw gizmos in editor for spawn zones
     private void OnDrawGizmosSelected()
     {
         if (spawnZones == null) return;

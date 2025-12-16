@@ -1,35 +1,45 @@
 using UnityEngine;
 using TMPro;
-using System; // Required for Type handling
+// Required for Type handling (GetType)
+using System;
 
 public class UpdateCollectibleCount : MonoBehaviour
 {
-    private TextMeshProUGUI collectibleText; // Reference to the TextMeshProUGUI component
+    // Reference to the TextMeshProUGUI component where the count will be displayed
+    private TextMeshProUGUI collectibleText;
 
     void Start()
     {
+        // Get the TextMeshProUGUI component attached to this GameObject
         collectibleText = GetComponent<TextMeshProUGUI>();
+
+        // Ensure the component exists; if not, log an error
         if (collectibleText == null)
         {
             Debug.LogError("UpdateCollectibleCount script requires a TextMeshProUGUI component on the same GameObject.");
             return;
         }
-        UpdateCollectibleDisplay(); // Initial update on start
+
+        // Perform an initial update of the collectible count display
+        UpdateCollectibleDisplay();
     }
 
     void Update()
     {
+        // Continuously update the collectible count every frame
         UpdateCollectibleDisplay();
     }
 
+    // Updates the on-screen collectible count
     private void UpdateCollectibleDisplay()
     {
         int totalCollectibles = 0;
 
-        // Check and count objects of type Collectible
+        // --- Count objects of type 'Collectible' ---
         Type collectibleType = Type.GetType("Collectible");
         if (collectibleType != null)
         {
+            // Find all objects of this type currently in the scene
             totalCollectibles += UnityEngine.Object.FindObjectsByType(collectibleType, FindObjectsSortMode.None).Length;
         }
 
@@ -40,7 +50,7 @@ public class UpdateCollectibleCount : MonoBehaviour
             totalCollectibles += UnityEngine.Object.FindObjectsByType(collectible2DType, FindObjectsSortMode.None).Length;
         }
 
-        // Update the collectible count display
+        // --- Update the TextMeshProUGUI display ---
         collectibleText.text = $"Collectibles remaining: {totalCollectibles}";
     }
 }

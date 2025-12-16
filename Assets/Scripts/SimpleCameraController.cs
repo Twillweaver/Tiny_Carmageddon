@@ -27,6 +27,7 @@ public class SimpleCameraController : MonoBehaviour
         rotationX -= mouseY;  // Subtracting to invert the up and down look
         rotationX = Mathf.Clamp(rotationX, -90f, 90f);  // Clamp the up and down look to avoid flipping
 
+        // Apply the vertical rotation while keeping horizontal rotation intact
         transform.localEulerAngles = new Vector3(rotationX, transform.localEulerAngles.y, 0);
     }
 }

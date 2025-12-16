@@ -99,6 +99,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6758868846053782678}
   - component: {fileID: 7923004479745742062}
+  - component: {fileID: 7997073905019805013}
   m_Layer: 0
   m_Name: Collectible_Apple
   m_TagString: Collectible
@@ -144,6 +145,22 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.06063953, y: 0.06933728, z: 0.06933743}
   m_Center: {x: -0.000000014901161, y: -0.024643704, z: 0.024643749}
+--- !u!114 &7997073905019805013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6235097118475628076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d221b1a15fac2c4db9a03c64fa55a78, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Collectible
+  RotationSpeedX: 0
+  RotationSpeedY: 50
+  RotationSpeedZ: 0
+  onCollectEffect: {fileID: 9163842254569548763, guid: 09ccf47b917d7854a866de1711178622, type: 3}
 --- !u!1 &7324186544453750446
 GameObject:
   m_ObjectHideFlags: 0

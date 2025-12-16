@@ -106,6 +106,11 @@ public class PlayerController_Arduino : MonoBehaviour
     [Range(0f, 1f)]
     public float engineVolume = 0.7f;
 
+    [Header("Fall Reset")]
+    public float fallYThreshold = -50f;   // height below which the level restarts
+    public float fallRestartDelay = 1f;
+
+
 
     // Private fields
     //private Rigidbody rb;
@@ -237,6 +242,13 @@ public class PlayerController_Arduino : MonoBehaviour
 
             engineAudioSource.volume =
                 Mathf.Lerp(engineAudioSource.volume, targetVolume, Time.deltaTime * 4f);
+        }
+
+        // --- Fall off world check ---
+        if (!gameOverShown && transform.position.y < fallYThreshold)
+        {
+            ShowGameOver();
+            return;
         }
 
 
@@ -501,14 +513,22 @@ public class PlayerController_Arduino : MonoBehaviour
         }
     }
 
+    private bool deathCamActive = false;
+
+    public void SetDeathCamActive(bool active)
+    {
+        deathCamActive = active;
+    }
+
     private void UpdateCameraPosition()
     {
-        if (cameraTransform == null) return;
+        if (cameraTransform == null || deathCamActive) return;  // skip if death cam is active
 
         Vector3 boostOffsetLocal = isBoosting ? boostCameraOffset * 0.1f : Vector3.zero;
         currentCameraOffset = Vector3.Lerp(currentCameraOffset, boostOffsetLocal, Time.deltaTime * cameraLerpSpeed);
         cameraTransform.localPosition = originalCameraLocalPos + currentCameraOffset;
     }
+
 
     private IEnumerator FadeAndRestart(float delay)
     {
