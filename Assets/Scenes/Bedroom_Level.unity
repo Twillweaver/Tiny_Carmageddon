@@ -785,9 +785,6 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 4453251587906699605, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 952899408}
-    - targetCorrespondingSourceObject: {fileID: 4453251587906699605, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
-      insertIndex: -1
       addedObject: {fileID: 952899409}
   m_SourcePrefab: {fileID: 100100000, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
 --- !u!4 &107911570 stripped
@@ -5750,33 +5747,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 4453251587906699605, guid: b1b1d5422f9604f19b5b88a945ebb435, type: 3}
   m_PrefabInstance: {fileID: 107911569}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &952899408
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 952899405}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5287c6cfeca86d043a08ef0ff106fc84, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerController
-  speed: 3
-  rotationSpeed: 120
-  jumpForce: 5
-  tiltThreshold: 40
-  restoreSpeed: 6
-  maxCorrectionPerSecond: 180
-  flipDotThreshold: -0.1
-  onlyWhenAirborne: 0
-  centerOfMassYOffset: -0.4
-  angularDragValue: 1.5
-  linearDragValue: 0.5
-  extraGravityForce: 120
-  boostMultiplier: 1.1
-  boostDuration: 3
-  brakeDeceleration: 3
 --- !u!114 &952899409
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5832,6 +5802,8 @@ MonoBehaviour:
   normalCameraOffset: {x: 0, y: 0, z: 0}
   boostCameraOffset: {x: 0, y: -0.3, z: -1.5}
   cameraLerpSpeed: 5
+  winConfettiVFX: {fileID: 7276764443248859406, guid: 2f5d313409ec64adc9647e645f3fd9f2, type: 3}
+  confettiLifetime: 5
   winnerText: {fileID: 1978963457}
   winnerPopScale: 2
   winnerPopDuration: 0.3
@@ -5852,6 +5824,8 @@ MonoBehaviour:
   engineAudioSource: {fileID: 1692054807}
   engineClip: {fileID: 8300000, guid: 75fa27e467267c74f91f1f6f4e74ff88, type: 3}
   engineVolume: 0.2
+  fallYThreshold: -50
+  fallRestartDelay: 1
 --- !u!1001 &958972541
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -12860,7 +12834,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: ce5a610f117a51b4885d9d427ee1a40d, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.15
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 1
   Mute: 0
